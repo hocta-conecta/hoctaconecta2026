@@ -273,7 +273,7 @@ def produtividade_panels(executivo_id=None):
         with cd4:
             card("Credenciados", cred_hoje, "fechados hoje", cor="verde")
 
-        # Interações por canal hoje
+        # Interações por canal hoje!!!
         canais_hoje = query(
             "SELECT i.canal, COUNT(*) AS n FROM interacoes i "
             "WHERE date(i.data_hora) = ? "
