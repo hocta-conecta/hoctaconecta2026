@@ -670,8 +670,8 @@ def modal_historico(prosp_id, prosp_nome, etapa_atual, projeto_nome):
         f"**{prosp_nome}** ·  {projeto_nome}  ·  `{ETAPA_LABEL.get(etapa_atual, etapa_atual)}`"
     )
 
-    tab_hist, tab_comentario, tab_prest, tab_contatos = st.tabs(
-        ["📜 Histórico", "💬 Novo comentário", "🏥 Prestador", "👥 Contatos"]
+    tab_hist, tab_comentario, tab_prest, tab_contatos, tab_email, tab_whatsapp = st.tabs(
+        ["📜 Histórico", "💬 Novo comentário", "🏥 Prestador", "👥 Contatos", "📧 Email", "💬 WhatsApp"]
     )
 
     with tab_hist:
@@ -697,6 +697,15 @@ def modal_historico(prosp_id, prosp_nome, etapa_atual, projeto_nome):
                     h2.caption(f"🕐 {data_exib}  ·  👤 {i['executivo']}")
                     if i["descricao"]:
                         st.markdown(f"> {i['descricao']}")
+                    if i["proxima_acao"]:
+                        fup_data = converter_para_data(i["data_followup"])
+                        fup_str = fup_data.strftime("%d/%m/%Y") if fup_data else "—"
+                        atrasado = fup_data and fup_data < hoje
+                        cor = "red" if atrasado else "#1558a8"
+                        st.markdown(
+                            f"<small>📅 Follow-up <b style='color:{cor}'>{fup_str}</b> · {i['proxima_acao']}</small>",
+                            unsafe_allow_html=True,
+                        )
 
     with tab_comentario:
         st.markdown(
@@ -726,31 +735,156 @@ def modal_historico(prosp_id, prosp_nome, etapa_atual, projeto_nome):
                 st.rerun()
 
     with tab_prest:
-        prest = query(
+        prest_rows = query(
             """
-            SELECT pr.razao_social, pr.nome_fantasia, pr.cnpj, pr.tipo, pr.cidade, pr.uf, pr.telefone, pr.email, pr.observacoes, p.data_inicio, p.dias_ciclo
-            FROM prospeccoes p JOIN prestadores pr ON pr.id = p.prestador_id WHERE p.id = %s
+            SELECT pr.id AS prestador_id, pr.razao_social, pr.nome_fantasia, pr.cnpj,
+                   pr.tipo, pr.cidade, pr.uf, pr.telefone, pr.email, pr.observacoes,
+                   p.data_inicio, p.dias_ciclo
+            FROM prospeccoes p
+            JOIN prestadores pr ON pr.id = p.prestador_id
+            WHERE p.id = %s
             """,
             (prosp_id,),
         )
-        if prest:
-            r = prest[0]
-            st.markdown(f"**Razão Social: {r['razao_social']}")
-            st.write(
-                f"📍 Cidade: {r['cidade']}/{r['uf']}  ·  📞 Tel: {r['telefone'] or '—'}"
-            )
-            st.write(
-                f"📅 Iniciado em: {r['data_inicio'] or '—'}  ·  🔄 Ciclo: {r['dias_ciclo'] or 0} dias"
+        if not prest_rows:
+            st.warning("Prestador não encontrado.")
+        else:
+            r = prest_rows[0]
+            pid_prest = r["prestador_id"]
+
+            # ── Dados básicos editáveis ──────────────────────────────
+            st.markdown("#### 📝 Dados do Prestador")
+            with st.form(f"form_prest_edit_{prosp_id}", border=False):
+                pe1, pe2 = st.columns(2)
+                with pe1:
+                    ed_razao = st.text_input("Razão Social", value=r["razao_social"] or "")
+                    ed_fantasia = st.text_input("Nome Fantasia", value=r["nome_fantasia"] or "")
+                    ed_cnpj = st.text_input("CNPJ", value=r["cnpj"] or "")
+                    ed_tipo = st.selectbox(
+                        "Tipo",
+                        list(TIPOS_PREST_D.keys()),
+                        index=list(TIPOS_PREST_D.keys()).index(r["tipo"])
+                        if r["tipo"] in TIPOS_PREST_D
+                        else 0,
+                        format_func=lambda x: TIPOS_PREST_D[x],
+                    )
+                with pe2:
+                    ed_cidade = st.text_input("Cidade", value=r["cidade"] or "")
+                    ed_uf = st.selectbox(
+                        "UF",
+                        UFS_D,
+                        index=UFS_D.index(r["uf"]) if r["uf"] in UFS_D else 0,
+                    )
+                    ed_tel = st.text_input("Telefone", value=r["telefone"] or "")
+                    ed_email = st.text_input("E-mail", value=r["email"] or "")
+                ed_obs = st.text_area("Observações", value=r["observacoes"] or "", height=80)
+
+                if st.form_submit_button("💾 Salvar dados", use_container_width=True):
+                    if not ed_razao.strip():
+                        st.error("Razão Social é obrigatória.")
+                    else:
+                        execute(
+                            """
+                            UPDATE prestadores
+                            SET razao_social=%s, nome_fantasia=%s, cnpj=%s, tipo=%s,
+                                cidade=%s, uf=%s, telefone=%s, email=%s, observacoes=%s
+                            WHERE id=%s
+                            """,
+                            (
+                                ed_razao.strip(),
+                                ed_fantasia.strip() or None,
+                                ed_cnpj.strip() or None,
+                                ed_tipo,
+                                normaliza_municipio(ed_cidade),
+                                ed_uf,
+                                ed_tel.strip() or None,
+                                ed_email.strip() or None,
+                                ed_obs.strip() or None,
+                                pid_prest,
+                            ),
+                        )
+                        st.success("✅ Dados atualizados!")
+                        st.rerun()
+
+            st.divider()
+            st.markdown("#### 🩺 Especialidades")
+            _esp_editor_modal(pid_prest, f"hist_prest_{prosp_id}")
+
+            st.divider()
+            st.caption(
+                f"📅 Prospecção iniciada em: {r['data_inicio'] or '—'}  ·  "
+                f"🔄 Ciclo: {r['dias_ciclo'] or 0} dias"
             )
 
     with tab_contatos:
-        st.caption("Contatos vinculados ao prestador.")
+        st.caption("Contatos vinculados ao prestador nesta prospecção.")
         contatos = query(
-            "SELECT id, email, nome FROM prospeccao_contatos WHERE prospeccao_id = %s",
+            "SELECT id, email, nome, cargo FROM prospeccao_contatos WHERE prospeccao_id = %s ORDER BY nome",
             (prosp_id,),
         )
-        for c in contatos:
-            st.write(f"👤 {c['nome'] or 'Sem Nome'} — `{c['email']}`")
+        if contatos:
+            for c in contatos:
+                cc1, cc2 = st.columns([5, 1])
+                cc1.write(
+                    f"👤 **{c['nome'] or 'Sem Nome'}**"
+                    + (f" · {c['cargo']}" if c.get("cargo") else "")
+                    + f"  —  `{c['email']}`"
+                )
+                if cc2.button("🗑️", key=f"del_cont_{c['id']}_{prosp_id}", help="Remover contato"):
+                    execute("DELETE FROM prospeccao_contatos WHERE id=%s", (c["id"],))
+                    st.rerun()
+        else:
+            st.info("Nenhum contato vinculado ainda.")
+
+        st.divider()
+        st.markdown("**Adicionar contato**")
+        with st.form(f"form_add_contato_{prosp_id}", clear_on_submit=True):
+            nc1, nc2 = st.columns(2)
+            with nc1:
+                nc_nome = st.text_input("Nome")
+                nc_cargo = st.text_input("Cargo")
+            with nc2:
+                nc_email = st.text_input("E-mail*")
+            if st.form_submit_button("➕ Adicionar", use_container_width=True):
+                if not nc_email.strip() or "@" not in nc_email:
+                    st.error("Informe um e-mail válido.")
+                else:
+                    execute(
+                        """
+                        INSERT INTO prospeccao_contatos (prospeccao_id, email, nome, cargo)
+                        VALUES (%s, %s, %s, %s)
+                        ON CONFLICT (prospeccao_id, email) DO UPDATE
+                        SET nome=excluded.nome, cargo=excluded.cargo
+                        """,
+                        (
+                            prosp_id,
+                            nc_email.strip().lower(),
+                            nc_nome.strip() or None,
+                            nc_cargo.strip() or None,
+                        ),
+                    )
+                    st.success("Contato adicionado!")
+                    st.rerun()
+
+    with tab_email:
+        st.info(
+            "📧 **Integração de e-mail em configuração.**\n\n"
+            "Quando ativa, esta aba exibirá os e-mails trocados com este prestador "
+            "e permitirá responder diretamente aqui.\n\n"
+            "Para ativar, configure a caixa IMAP em **Meu Perfil** ou peça ao administrador "
+            "para configurar a caixa da equipe em **Administração → E-mail**.",
+            icon="ℹ️",
+        )
+
+    with tab_whatsapp:
+        st.info(
+            "💬 **Integração WhatsApp em configuração.**\n\n"
+            "Quando ativa, esta aba exibirá o histórico de mensagens WhatsApp com este "
+            "prestador e permitirá enviar mensagens diretamente aqui.\n\n"
+            "A integração requer o WPPConnect Server rodando em servidor separado. "
+            "Consulte o administrador do sistema.",
+            icon="ℹ️",
+        )
 
 
 @st.dialog("🎯 Registrar Interação", width="large")
