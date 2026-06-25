@@ -16,19 +16,13 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
-  LineChart,
-  Line,
   AreaChart,
   Area,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
-  ComposedChart,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -42,82 +36,222 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 type DashboardStats = {
-  // Globais
   totalPrestadores: number;
   totalProspectos: number;
   totalProjetos: number;
   taxaConversao: number;
   credenciados: number;
-  
-  // Por especialidade
-  porEspecialidade: { nome: string; meta: number; credenciados: number; cobertura: number }[];
-  
-  // Prospecção
+
+  porEspecialidade: { nome: string; credenciados: number }[];
   porEtapa: { etapa: string; count: number }[];
-  
-  // Credenciamento
-  credenciamentosPorData: { data: string; count: number }[];
-  
-  // Alertas
+  credenciamentosPorMes: { mes: string; count: number }[];
   inativosRecentes: { prestador: string; projeto: string; dias: number }[];
-  
-  // Executivos
   rankingExecutivos: { nome: string; interacoes: number; credenciados: number }[];
+  prestadoresAtivos: { nome: string; especialidade: string; etapa: string }[];
+  prestadoresCredenciados: { nome: string; especialidade: string; data: string }[];
+  coberturaMunicipios: { municipio: string; total: number }[];
+  metaAnual: number;
 };
 
+const ETAPA_LABEL: Record<string, string> = {
+  identificado: "Identificado",
+  contato_tentado: "Contato Tentado",
+  contato_estabelecido: "Contato Estabelecido",
+  proposta_enviada: "Proposta Enviada",
+  em_negociacao: "Em Negociação",
+  credenciado: "Credenciado",
+  declinado: "Declinado",
+};
+
+const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
 async function loadDashboardStats(): Promise<DashboardStats> {
-  const [prestadores, prospeccoes, projetos, credenciados] = await Promise.all([
+  const now = new Date();
+  const anoAtual = now.getFullYear();
+  const inicioAno = `${anoAtual}-01-01`;
+
+  const [
+    prestadoresRes,
+    prospeccoesTodas,
+    projetosRes,
+    credenciadosRes,
+    inativosRes,
+    executivosRes,
+    prestadoresAtivosRes,
+    prestadoresCredenciadosRes,
+    municipiosRes,
+    especialidadesRes,
+    credPorMesRes,
+  ] = await Promise.all([
+    // Total prestadores
     supabase.from("prestadores").select("*", { count: "exact", head: true }),
-    supabase.from("prospeccoes").select("*", { count: "exact", head: true }),
-    supabase.from("projetos").select("*", { count: "exact", head: true }),
-    supabase.from("prospeccoes").select("*").eq("etapa", "credenciado"),
+
+    // Todas prospecções para funil
+    supabase.from("prospeccoes").select("etapa"),
+
+    // Total projetos ativos
+    supabase.from("projetos").select("*", { count: "exact", head: true }).eq("status", "ativo"),
+
+    // Credenciados total
+    supabase
+      .from("prospeccoes")
+      .select("*", { count: "exact", head: true })
+      .eq("etapa", "credenciado"),
+
+    // Inativos: prospecções sem atualização há mais de 14 dias
+    supabase
+      .from("prospeccoes")
+      .select("id, atualizado_em, etapa, prestadores(razao_social, nome_fantasia), projetos(nome)")
+      .not("etapa", "in", '("credenciado","declinado")')
+      .lt("atualizado_em", new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString())
+      .order("atualizado_em", { ascending: true })
+      .limit(5),
+
+    // Ranking executivos: profiles com contagem de prospecções e credenciados
+    supabase
+      .from("prospeccoes")
+      .select("executivo_id, etapa, profiles!prospeccoes_executivo_id_fkey(nome)")
+      .not("executivo_id", "is", null),
+
+    // Prestadores em prospecção ativa (não finalizados)
+    supabase
+      .from("prospeccoes")
+      .select("etapa, prestadores(razao_social, nome_fantasia, especialidade)")
+      .not("etapa", "in", '("credenciado","declinado")')
+      .order("criado_em", { ascending: false })
+      .limit(10),
+
+    // Prestadores credenciados recentes
+    supabase
+      .from("prospeccoes")
+      .select("data_contratacao, criado_em, prestadores(razao_social, nome_fantasia, especialidade)")
+      .eq("etapa", "credenciado")
+      .order("data_contratacao", { ascending: false, nullsFirst: false })
+      .limit(6),
+
+    // Cobertura por município
+    supabase
+      .from("prestadores")
+      .select("cidade"),
+
+    // Especialidades dos credenciados
+    supabase
+      .from("prospeccoes")
+      .select("prestadores(especialidade)")
+      .eq("etapa", "credenciado"),
+
+    // Credenciamentos por mês no ano atual
+    supabase
+      .from("prospeccoes")
+      .select("data_contratacao, criado_em")
+      .eq("etapa", "credenciado")
+      .gte("criado_em", inicioAno),
   ]);
 
-  const totalCred = credenciados.data?.length ?? 0;
-  const totalProsp = prospeccoes.count ?? 1;
-  const taxa = Math.round((totalCred / totalProsp) * 100);
+  const totalCred = credenciadosRes.count ?? 0;
+  const totalProsp = prospeccoesTodas.data?.length ?? 1;
+  const taxa = totalProsp > 0 ? Math.round((totalCred / totalProsp) * 100) : 0;
+
+  // Funil por etapa
+  const etapaCounts: Record<string, number> = {};
+  for (const p of prospeccoesTodas.data ?? []) {
+    etapaCounts[p.etapa] = (etapaCounts[p.etapa] ?? 0) + 1;
+  }
+  const porEtapa = Object.entries(etapaCounts)
+    .filter(([e]) => e !== "declinado")
+    .map(([etapa, count]) => ({ etapa: ETAPA_LABEL[etapa] ?? etapa, count }));
+
+  // Inativos
+  const inativosRecentes = (inativosRes.data ?? []).map((p: any) => {
+    const dias = Math.floor(
+      (Date.now() - new Date(p.atualizado_em).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    const prestNome =
+      p.prestadores?.nome_fantasia || p.prestadores?.razao_social || "Prestador";
+    const projNome = p.projetos?.nome || "Projeto";
+    return { prestador: prestNome, projeto: projNome, dias };
+  });
+
+  // Ranking executivos
+  const execMap: Record<string, { nome: string; interacoes: number; credenciados: number }> = {};
+  for (const p of executivosRes.data ?? []) {
+    const id = p.executivo_id as string;
+    const nome = (p.profiles as any)?.nome || "Executivo";
+    if (!execMap[id]) execMap[id] = { nome, interacoes: 0, credenciados: 0 };
+    execMap[id].interacoes += 1;
+    if (p.etapa === "credenciado") execMap[id].credenciados += 1;
+  }
+  const rankingExecutivos = Object.values(execMap)
+    .sort((a, b) => b.credenciados - a.credenciados || b.interacoes - a.interacoes)
+    .slice(0, 5);
+
+  // Prestadores ativos
+  const prestadoresAtivos = (prestadoresAtivosRes.data ?? []).map((p: any) => ({
+    nome: p.prestadores?.nome_fantasia || p.prestadores?.razao_social || "—",
+    especialidade: p.prestadores?.especialidade || "—",
+    etapa: ETAPA_LABEL[p.etapa] ?? p.etapa,
+  }));
+
+  // Prestadores credenciados
+  const prestadoresCredenciados = (prestadoresCredenciadosRes.data ?? []).map((p: any) => {
+    const dataBase = p.data_contratacao || p.criado_em;
+    const d = new Date(dataBase);
+    const mesAno = `${MESES[d.getMonth()]} ${d.getFullYear()}`;
+    return {
+      nome: p.prestadores?.nome_fantasia || p.prestadores?.razao_social || "—",
+      especialidade: p.prestadores?.especialidade || "—",
+      data: mesAno,
+    };
+  });
+
+  // Cobertura por município (top 6)
+  const munMap: Record<string, number> = {};
+  for (const p of municipiosRes.data ?? []) {
+    if (p.cidade) munMap[p.cidade] = (munMap[p.cidade] ?? 0) + 1;
+  }
+  const coberturaMunicipios = Object.entries(munMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([municipio, total]) => ({ municipio, total }));
+
+  // Cobertura por especialidade
+  const espMap: Record<string, number> = {};
+  for (const p of especialidadesRes.data ?? []) {
+    const esp = (p.prestadores as any)?.especialidade;
+    if (esp) espMap[esp] = (espMap[esp] ?? 0) + 1;
+  }
+  const porEspecialidade = Object.entries(espMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([nome, credenciados]) => ({ nome, credenciados }));
+
+  // Credenciamentos por mês
+  const mesMap: Record<number, number> = {};
+  for (const p of credPorMesRes.data ?? []) {
+    const d = new Date(p.data_contratacao || p.criado_em);
+    const m = d.getMonth();
+    mesMap[m] = (mesMap[m] ?? 0) + 1;
+  }
+  const credenciamentosPorMes = MESES.map((mes, i) => ({
+    mes,
+    count: mesMap[i] ?? 0,
+  })).filter((_, i) => i <= now.getMonth());
 
   return {
-    totalPrestadores: prestadores.count ?? 0,
-    totalProspectos: prospeccoes.count ?? 0,
-    totalProjetos: projetos.count ?? 0,
+    totalPrestadores: prestadoresRes.count ?? 0,
+    totalProspectos: totalProsp,
+    totalProjetos: projetosRes.count ?? 0,
     taxaConversao: taxa,
     credenciados: totalCred,
-    
-    // Mock data - será substituído por queries reais
-    porEspecialidade: [
-      { nome: "Enfermagem", meta: 50, credenciados: 45, cobertura: 90 },
-      { nome: "Fisioterapia", meta: 30, credenciados: 25, cobertura: 83 },
-      { nome: "Nutrição", meta: 20, credenciados: 18, cobertura: 90 },
-      { nome: "Psicologia", meta: 25, credenciados: 20, cobertura: 80 },
-    ],
-    
-    porEtapa: [
-      { etapa: "Identificado", count: 45 },
-      { etapa: "Contato", count: 32 },
-      { etapa: "Proposta", count: 18 },
-      { etapa: "Credenciado", count: totalCred },
-    ],
-    
-    credenciamentosPorData: [
-      { data: "Jan", count: 12 },
-      { data: "Fev", count: 19 },
-      { data: "Mar", count: 15 },
-      { data: "Abr", count: 25 },
-      { data: "Mai", count: 22 },
-      { data: "Jun", count: 31 },
-    ],
-    
-    inativosRecentes: [
-      { prestador: "Clinica A", projeto: "Projeto X", dias: 21 },
-      { prestador: "Hosp. B", projeto: "Projeto Y", dias: 15 },
-    ],
-    
-    rankingExecutivos: [
-      { nome: "Ana Silva", interacoes: 156, credenciados: 34 },
-      { nome: "Carlos Mendes", interacoes: 142, credenciados: 31 },
-      { nome: "Marina Costa", interacoes: 128, credenciados: 28 },
-    ],
+    porEspecialidade,
+    porEtapa,
+    credenciamentosPorMes,
+    inativosRecentes,
+    rankingExecutivos,
+    prestadoresAtivos,
+    prestadoresCredenciados,
+    coberturaMunicipios,
+    metaAnual: 0, // sem meta definida no banco ainda
   };
 }
 
@@ -127,6 +261,7 @@ function DashboardPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: loadDashboardStats,
+    staleTime: 60_000,
   });
 
   if (isLoading) {
@@ -157,24 +292,9 @@ function DashboardPage() {
 
       {/* KPIs Globais */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <KpiCard
-          label="Total Prestadores"
-          value={data?.totalPrestadores ?? 0}
-          icon={Users}
-          tone="primary"
-        />
-        <KpiCard
-          label="Prospecções Ativas"
-          value={data?.totalProspectos ?? 0}
-          icon={Target}
-          tone="warning"
-        />
-        <KpiCard
-          label="Credenciados"
-          value={data?.credenciados ?? 0}
-          icon={CheckCircle2}
-          tone="success"
-        />
+        <KpiCard label="Total Prestadores" value={data?.totalPrestadores ?? 0} icon={Users} tone="primary" />
+        <KpiCard label="Prospecções Ativas" value={data?.totalProspectos ?? 0} icon={Target} tone="warning" />
+        <KpiCard label="Credenciados" value={data?.credenciados ?? 0} icon={CheckCircle2} tone="success" />
         <KpiCard
           label="Taxa de Conversão"
           value={`${data?.taxaConversao ?? 0}%`}
@@ -182,12 +302,7 @@ function DashboardPage() {
           tone="accent"
           subtitle="Prospecção → Credenciado"
         />
-        <KpiCard
-          label="Projetos Ativos"
-          value={data?.totalProjetos ?? 0}
-          icon={Briefcase}
-          tone="primary"
-        />
+        <KpiCard label="Projetos Ativos" value={data?.totalProjetos ?? 0} icon={Briefcase} tone="primary" />
       </div>
 
       {/* Alertas de Inatividade */}
@@ -195,7 +310,8 @@ function DashboardPage() {
         <Alert variant="destructive" className="border-orange-500/50 bg-orange-50">
           <AlertCircle className="h-4 w-4 text-orange-600" />
           <AlertDescription className="text-orange-900">
-            <strong>{data.inativosRecentes.length} prospecções sem atividade</strong> há mais de 14 dias
+            <strong>{data.inativosRecentes.length} prospecções sem atividade</strong> há mais de 14 dias:{" "}
+            {data.inativosRecentes.map((i) => `${i.prestador} (${i.dias}d)`).join(", ")}
           </AlertDescription>
         </Alert>
       )}
@@ -211,77 +327,52 @@ function DashboardPage() {
         {/* ABA 1: PLANEJAMENTO */}
         <TabsContent value="planejamento" className="space-y-6">
           <div className="grid gap-4 lg:grid-cols-2">
-            {/* Meta vs Benchmark */}
+            {/* Cobertura por Especialidade */}
             <Card>
               <CardHeader>
-                <CardTitle>Cobertura por Especialidade</CardTitle>
-                <CardDescription>Meta vs Credenciados Atual</CardDescription>
+                <CardTitle>Credenciados por Especialidade</CardTitle>
+                <CardDescription>Distribuição real da rede credenciada</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={data?.porEspecialidade}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                    <XAxis dataKey="nome" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="meta" fill="#2A95B6" name="Meta" />
-                    <Bar dataKey="credenciados" fill="#27AE60" name="Credenciados" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {data?.porEspecialidade.length === 0 ? (
+                  <EmptyState mensagem="Nenhum credenciado registrado ainda." />
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={data?.porEspecialidade}>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                      <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Bar dataKey="credenciados" fill="#27AE60" name="Credenciados" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
 
-            {/* Cobertura % */}
+            {/* Cobertura por Município */}
             <Card>
               <CardHeader>
-                <CardTitle>% Cobertura por Especialidade</CardTitle>
-                <CardDescription>Progresso em relação à meta</CardDescription>
+                <CardTitle>Prestadores por Município</CardTitle>
+                <CardDescription>Quantidade de prestadores cadastrados por cidade</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {data?.porEspecialidade.map((esp) => (
-                  <div key={esp.nome} className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium">{esp.nome}</span>
-                      <Badge variant={esp.cobertura >= 80 ? "default" : "secondary"}>
-                        {esp.cobertura}%
-                      </Badge>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary transition-all"
-                        style={{ width: `${esp.cobertura}%` }}
-                      />
-                    </div>
+              <CardContent>
+                {data?.coberturaMunicipios.length === 0 ? (
+                  <EmptyState mensagem="Nenhum prestador com cidade registrada." />
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {data?.coberturaMunicipios.map((m) => (
+                      <div key={m.municipio} className="p-4 border rounded-lg">
+                        <p className="text-sm font-medium truncate">{m.municipio}</p>
+                        <p className="text-2xl font-bold text-primary mt-2">{m.total}</p>
+                        <p className="text-xs text-muted-foreground mt-1">prestadores</p>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </CardContent>
             </Card>
           </div>
-
-          {/* Cards de Municipios */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Cobertura por Município</CardTitle>
-              <CardDescription>% de meta atingido em cada região</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {[
-                  { municipio: "São Paulo", cobertura: 95 },
-                  { municipio: "Campinas", cobertura: 87 },
-                  { municipio: "Sorocaba", cobertura: 72 },
-                  { municipio: "Ribeirão Preto", cobertura: 68 },
-                ].map((m) => (
-                  <div key={m.municipio} className="p-4 border rounded-lg">
-                    <p className="text-sm font-medium">{m.municipio}</p>
-                    <p className="text-2xl font-bold text-primary mt-2">{m.cobertura}%</p>
-                    <p className="text-xs text-muted-foreground mt-1">meta atingida</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         {/* ABA 2: PROSPECÇÃO ATIVA */}
@@ -291,18 +382,22 @@ function DashboardPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Funil de Etapas</CardTitle>
-                <CardDescription>Prospecções em andamento</CardDescription>
+                <CardDescription>Prospecções em andamento por etapa</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={data?.porEtapa} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                    <XAxis type="number" tick={{ fontSize: 11 }} />
-                    <YAxis dataKey="etapa" type="category" tick={{ fontSize: 10 }} width={80} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#1558a8" radius={[0, 6, 6, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                {data?.porEtapa.length === 0 ? (
+                  <EmptyState mensagem="Nenhuma prospecção registrada." />
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={data?.porEtapa} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                      <XAxis type="number" tick={{ fontSize: 11 }} />
+                      <YAxis dataKey="etapa" type="category" tick={{ fontSize: 10 }} width={120} />
+                      <Tooltip />
+                      <Bar dataKey="count" fill="#1558a8" radius={[0, 6, 6, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
 
@@ -313,21 +408,25 @@ function DashboardPage() {
                 <CardDescription>Performance em prospecções e credenciamentos</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {data?.rankingExecutivos.map((exec, idx) => (
-                    <div key={exec.nome} className="flex items-start gap-3">
-                      <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary font-semibold text-sm">
-                        {idx + 1}
+                {data?.rankingExecutivos.length === 0 ? (
+                  <EmptyState mensagem="Nenhum executivo com prospecções vinculadas." />
+                ) : (
+                  <div className="space-y-4">
+                    {data?.rankingExecutivos.map((exec, idx) => (
+                      <div key={exec.nome} className="flex items-start gap-3">
+                        <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary font-semibold text-sm">
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm">{exec.nome}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {exec.interacoes} prospecções · {exec.credenciados} credenciados
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm">{exec.nome}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {exec.interacoes} interações · {exec.credenciados} credenciados
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -335,48 +434,36 @@ function DashboardPage() {
           {/* Lista Prestadores Ativos */}
           <Card>
             <CardHeader>
-              <CardTitle>Prestadores Ativos</CardTitle>
-              <CardDescription>Prospecções em andamento por prestador</CardDescription>
+              <CardTitle>Prestadores em Prospecção</CardTitle>
+              <CardDescription>Prospecções em andamento (excluídos credenciados e declinados)</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="border-b">
-                    <tr>
-                      <th className="text-left py-2 px-3 font-medium">Prestador</th>
-                      <th className="text-left py-2 px-3 font-medium">Especialidade</th>
-                      <th className="text-left py-2 px-3 font-medium">Etapa</th>
-                      <th className="text-right py-2 px-3 font-medium">% Conclusão</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      { nome: "Clínica A", esp: "Enfermagem", etapa: "Proposta", pct: 75 },
-                      { nome: "Hospital B", esp: "Cardiologia", etapa: "Contato", pct: 45 },
-                      { nome: "Lab C", esp: "Análises", etapa: "Negociação", pct: 60 },
-                    ].map((r) => (
-                      <tr key={r.nome} className="border-b hover:bg-muted/50">
-                        <td className="py-2 px-3">{r.nome}</td>
-                        <td className="py-2 px-3">{r.esp}</td>
-                        <td className="py-2 px-3">
-                          <Badge variant="outline">{r.etapa}</Badge>
-                        </td>
-                        <td className="py-2 px-3 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-success"
-                                style={{ width: `${r.pct}%` }}
-                              />
-                            </div>
-                            <span className="text-xs font-medium">{r.pct}%</span>
-                          </div>
-                        </td>
+              {data?.prestadoresAtivos.length === 0 ? (
+                <EmptyState mensagem="Nenhuma prospecção ativa no momento." />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="border-b">
+                      <tr>
+                        <th className="text-left py-2 px-3 font-medium">Prestador</th>
+                        <th className="text-left py-2 px-3 font-medium">Especialidade</th>
+                        <th className="text-left py-2 px-3 font-medium">Etapa</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {data?.prestadoresAtivos.map((r, i) => (
+                        <tr key={i} className="border-b hover:bg-muted/50">
+                          <td className="py-2 px-3">{r.nome}</td>
+                          <td className="py-2 px-3">{r.especialidade}</td>
+                          <td className="py-2 px-3">
+                            <Badge variant="outline">{r.etapa}</Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -388,45 +475,43 @@ function DashboardPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Evolução de Credenciamentos</CardTitle>
-                <CardDescription>Últimos 6 meses</CardDescription>
+                <CardDescription>Meses do ano atual</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={data?.credenciamentosPorData}>
-                    <defs>
-                      <linearGradient id="colorCred" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#27AE60" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="#27AE60" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                    <XAxis dataKey="data" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Area
-                      type="monotone"
-                      dataKey="count"
-                      stroke="#27AE60"
-                      fillOpacity={1}
-                      fill="url(#colorCred)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                {data?.credenciamentosPorMes.every((m) => m.count === 0) ? (
+                  <EmptyState mensagem="Nenhum credenciamento registrado este ano." />
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={data?.credenciamentosPorMes}>
+                      <defs>
+                        <linearGradient id="colorCred" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#27AE60" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#27AE60" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                      <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Area type="monotone" dataKey="count" name="Credenciados" stroke="#27AE60" fillOpacity={1} fill="url(#colorCred)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
 
-            {/* Distribuição por Status */}
+            {/* Total credenciados vs prospecções */}
             <Card>
               <CardHeader>
-                <CardTitle>Projeção de Conclusão</CardTitle>
-                <CardDescription>Meta vs Projeção</CardDescription>
+                <CardTitle>Resumo de Conversão</CardTitle>
+                <CardDescription>Visão geral do pipeline</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
                   <div>
                     <div className="flex justify-between text-sm mb-2">
-                      <span className="font-medium">Meta Anual</span>
-                      <span className="font-bold text-primary">500</span>
+                      <span className="font-medium">Total Prospecções</span>
+                      <span className="font-bold text-primary">{data?.totalProspectos ?? 0}</span>
                     </div>
                     <div className="h-3 bg-muted rounded-full overflow-hidden">
                       <div className="h-full bg-primary" style={{ width: "100%" }} />
@@ -434,20 +519,25 @@ function DashboardPage() {
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-2">
-                      <span className="font-medium">Atual</span>
-                      <span className="font-bold text-success">245</span>
+                      <span className="font-medium">Credenciados</span>
+                      <span className="font-bold text-success">{data?.credenciados ?? 0}</span>
                     </div>
                     <div className="h-3 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-success" style={{ width: "49%" }} />
+                      <div
+                        className="h-full bg-success"
+                        style={{
+                          width: `${data && data.totalProspectos > 0 ? Math.round((data.credenciados / data.totalProspectos) * 100) : 0}%`,
+                        }}
+                      />
                     </div>
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-2">
-                      <span className="font-medium">Projeção (EOP)</span>
-                      <span className="font-bold text-warning">420</span>
+                      <span className="font-medium">Taxa de Conversão</span>
+                      <span className="font-bold text-warning">{data?.taxaConversao ?? 0}%</span>
                     </div>
                     <div className="h-3 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-warning" style={{ width: "84%" }} />
+                      <div className="h-full bg-warning" style={{ width: `${data?.taxaConversao ?? 0}%` }} />
                     </div>
                   </div>
                 </div>
@@ -458,30 +548,36 @@ function DashboardPage() {
           {/* Prestadores Credenciados */}
           <Card>
             <CardHeader>
-              <CardTitle>Prestadores Credenciados</CardTitle>
-              <CardDescription>Rede credenciada ativa</CardDescription>
+              <CardTitle>Prestadores Credenciados Recentes</CardTitle>
+              <CardDescription>Rede credenciada ativa — últimos credenciados</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {[
-                  { nome: "Clinica Premium", esp: "Enfermagem", data: "Jun 2024" },
-                  { nome: "Hospital Central", esp: "Cirurgia", data: "Mai 2024" },
-                  { nome: "Lab Diagnostico", esp: "Análises", data: "Abr 2024" },
-                  { nome: "Fisio Vital", esp: "Fisioterapia", data: "Mar 2024" },
-                  { nome: "Psico Centro", esp: "Psicologia", data: "Fev 2024" },
-                  { nome: "Nutri Health", esp: "Nutrição", data: "Jan 2024" },
-                ].map((p) => (
-                  <div key={p.nome} className="p-4 border rounded-lg hover:bg-muted/50 transition">
-                    <p className="font-medium text-sm">{p.nome}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{p.esp}</p>
-                    <p className="text-xs text-success mt-2">Credenciado em {p.data}</p>
-                  </div>
-                ))}
-              </div>
+              {data?.prestadoresCredenciados.length === 0 ? (
+                <EmptyState mensagem="Nenhum prestador credenciado ainda." />
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {data?.prestadoresCredenciados.map((p, i) => (
+                    <div key={i} className="p-4 border rounded-lg hover:bg-muted/50 transition">
+                      <p className="font-medium text-sm">{p.nome}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{p.especialidade}</p>
+                      <p className="text-xs text-success mt-2">Credenciado em {p.data}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function EmptyState({ mensagem }: { mensagem: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+      <Clock className="h-8 w-8 mb-2 opacity-40" />
+      <p className="text-sm">{mensagem}</p>
     </div>
   );
 }
