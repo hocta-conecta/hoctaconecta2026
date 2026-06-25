@@ -49,6 +49,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@lovable.dev/vite-tanstack-config": "^2.6.1",
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
