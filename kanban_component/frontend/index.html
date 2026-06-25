@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: transparent;
+  padding: 4px;
+  overflow-x: auto;
+}
+.board {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  min-height: 300px;
+}
+.column {
+  min-width: 180px;
+  flex: 1;
+  background: #f1f3f8;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  max-height: 600px;
+}
+.col-header {
+  padding: 9px 12px;
+  border-radius: 10px 10px 0 0;
+  color: white;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+.col-count {
+  background: rgba(255,255,255,0.28);
+  border-radius: 20px;
+  padding: 1px 8px;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+.col-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 7px;
+  min-height: 60px;
+  transition: background 0.15s;
+  border-radius: 0 0 10px 10px;
+}
+.col-body.drag-over {
+  background: rgba(30, 107, 138, 0.08);
+  outline: 2px dashed #1E6B8A;
+  outline-offset: -4px;
+  border-radius: 0 0 10px 10px;
+}
+.card {
+  background: white;
+  border-radius: 7px;
+  padding: 9px 11px;
+  margin-bottom: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.09);
+  cursor: grab;
+  border-left: 3px solid #ccc;
+  transition: box-shadow 0.12s, transform 0.12s;
+  user-select: none;
+}
+.card:hover {
+  box-shadow: 0 3px 10px rgba(0,0,0,0.13);
+  transform: translateY(-1px);
+}
+.card.dragging {
+  opacity: 0.35;
+  cursor: grabbing;
+}
+.card-title {
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: #1a1a2e;
+  line-height: 1.3;
+}
+.card-sub {
+  font-size: 0.71rem;
+  color: #999;
+  margin-top: 3px;
+  line-height: 1.3;
+}
+.badge {
+  display: inline-block;
+  font-size: 0.67rem;
+  padding: 2px 7px;
+  border-radius: 20px;
+  margin-top: 5px;
+  font-weight: 600;
+}
+.badge-venc { background: #fdecea; color: #e74c3c; }
+.badge-hoje { background: #fff3e0; color: #e67e22; }
+.badge-ok   { background: #e8f5e9; color: #27ae60; }
+.badge-sem  { background: #f5f5f5; color: #aaa; }
+.col-empty {
+  color: #ccc;
+  text-align: center;
+  padding: 18px 0;
+  font-size: 0.78rem;
+}
+</style>
+</head>
+<body>
+<div class="board" id="board"></div>
+<script>
+let allColumns = [];
+let dragCardId = null;
+let dragFromEtapa = null;
+
+function renderBoard(columns) {
+  allColumns = columns;
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+
+  columns.forEach((col) => {
+    const colEl = document.createElement('div');
+    colEl.className = 'column';
+
+    const header = document.createElement('div');
+    header.className = 'col-header';
+    header.style.background = col.color;
+    header.innerHTML = `<span>${col.header}</span><span class="col-count">${col.items.length}</span>`;
+
+    const body = document.createElement('div');
+    body.className = 'col-body';
+    body.dataset.etapa = col.etapa;
+
+    if (col.items.length === 0) {
+      body.innerHTML = '<div class="col-empty">Arraste aqui</div>';
+    } else {
+      col.items.forEach(card => {
+        body.appendChild(makeCard(card, col.color, col.etapa));
+      });
+    }
+
+    body.addEventListener('dragover', e => {
+      e.preventDefault();
+      body.classList.add('drag-over');
+    });
+    body.addEventListener('dragleave', e => {
+      if (!body.contains(e.relatedTarget)) body.classList.remove('drag-over');
+    });
+    body.addEventListener('drop', e => {
+      e.preventDefault();
+      body.classList.remove('drag-over');
+      const targetEtapa = body.dataset.etapa;
+      if (dragCardId !== null && dragFromEtapa !== targetEtapa) {
+        sendMove(dragCardId, targetEtapa);
+      }
+    });
+
+    colEl.appendChild(header);
+    colEl.appendChild(body);
+    board.appendChild(colEl);
+  });
+}
+
+function makeCard(card, color, etapa) {
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.draggable = true;
+  el.style.borderLeftColor = color;
+
+  let badge = '';
+  if (!card.followup) {
+    badge = '<span class="badge badge-sem">Sem follow-up</span>';
+  } else if (card.vencido) {
+    badge = `<span class="badge badge-venc">⚠ Vencido · ${card.followup}</span>`;
+  } else if (card.hoje) {
+    badge = `<span class="badge badge-hoje">📅 Hoje</span>`;
+  } else {
+    badge = `<span class="badge badge-ok">✓ ${card.followup}</span>`;
+  }
+
+  el.innerHTML = `
+    <div class="card-title">${card.title}</div>
+    <div class="card-sub">${card.sub}</div>
+    ${badge}
+  `;
+
+  el.addEventListener('dragstart', () => {
+    dragCardId = card.id;
+    dragFromEtapa = etapa;
+    setTimeout(() => el.classList.add('dragging'), 0);
+  });
+  el.addEventListener('dragend', () => {
+    el.classList.remove('dragging');
+    dragCardId = null;
+    dragFromEtapa = null;
+  });
+
+  return el;
+}
+
+function sendMove(cardId, newEtapa) {
+  window.parent.postMessage({
+    type: "streamlit:setComponentValue",
+    value: { card_id: cardId, new_etapa: newEtapa }
+  }, "*");
+}
+
+function setHeight() {
+  const h = Math.max(document.body.scrollHeight + 16, 300);
+  window.parent.postMessage({ type: "streamlit:setFrameHeight", height: h }, "*");
+}
+
+// Streamlit component protocol
+window.parent.postMessage({ type: "streamlit:componentReady", apiVersion: 1 }, "*");
+
+window.addEventListener("message", function(event) {
+  if (event.data.type === "streamlit:render") {
+    renderBoard(event.data.args.columns);
+    setTimeout(setHeight, 80);
+  }
+});
+</script>
+</body>
+</html>

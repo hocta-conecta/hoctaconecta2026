@@ -1,0 +1,16 @@
+*.db
+__pycache__/
+*.pyc
+.env
+.DS_Store
+.streamlit/secrets.toml
+.secrets.toml.example
+.venv/
+
+# Build artifacts / previous project files
+node_modules/
+.tanstack/
+.workspace/
+tsconfig.tsbuildinfo
+*.docx
+.vercel
