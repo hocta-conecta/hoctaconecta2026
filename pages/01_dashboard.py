@@ -104,6 +104,37 @@ st.markdown(
     .md-card-sub.warn { color: var(--c-orange); }
     .md-card-sub.err  { color: var(--c-red); }
 
+    .md-card {
+        background: var(--c-surface);
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: 18px;
+        padding: 18px 20px;
+        min-height: 128px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 8px;
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.06);
+    }
+    .md-card-icon {
+        font-size: 1.75rem;
+        line-height: 1;
+    }
+    .md-card-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--c-text);
+    }
+    .md-card-label {
+        font-size: 0.95rem;
+        color: var(--c-text-2);
+        line-height: 1.3;
+    }
+    .md-card.verde { border-color: #1e8e3e; }
+    .md-card.laranja { border-color: #f29900; }
+    .md-card.vermelho { border-color: #d93025; }
+    .md-card.roxo { border-color: #6f42c1; }
+
     /* ── Section title ────────────────────────────────────────── */
     .md-section {
         font-family: 'Google Sans', sans-serif;
@@ -489,6 +520,145 @@ def dashboard_executivo():
         unsafe_allow_html=True,
     )
 
+    total_prospeccoes = query(
+        "SELECT COUNT(*) AS c FROM prospeccoes WHERE etapa NOT IN ('declinado')"
+    )[0]["c"]
+    total_credenciados = query(
+        "SELECT COUNT(*) AS c FROM prospeccoes WHERE etapa = 'credenciado'"
+    )[0]["c"]
+    total_projetos = query("SELECT COUNT(*) AS c FROM projetos WHERE status = 'ativo'")[0]["c"]
+    interacoes_30 = query(
+        "SELECT COUNT(*) AS c FROM interacoes WHERE date(data_hora) BETWEEN date('now','-29 days') AND date('now')"
+    )[0]["c"]
+    novas_30 = query(
+        "SELECT COUNT(*) AS c FROM prospeccoes WHERE date(criado_em) BETWEEN date('now','-29 days') AND date('now')"
+    )[0]["c"]
+    taxa_geral = round(total_credenciados / total_prospeccoes * 100, 1) if total_prospeccoes else 0
+
+    c1, c2, c3, c4, c5 = st.columns(5)
+    with c1:
+        card("Projetos Ativos", total_projetos, "Visão geral do portfólio")
+    with c2:
+        card(
+            "Prospecções em Aberto",
+            total_prospeccoes,
+            "Exclui prospecções declinadas",
+            cor="laranja",
+        )
+    with c3:
+        card("Credenciados Totais", total_credenciados, "Rede credenciada atual", cor="verde")
+    with c4:
+        card("Conversão Global", f"{taxa_geral}%", "Meta de fechamento", cor="roxo")
+    with c5:
+        card("Atividade 30d", f"{interacoes_30} interações", f"{novas_30} prospecções iniciadas")
+
+    atividades = query(
+        "SELECT date(i.data_hora) AS dia, COUNT(*) AS n FROM interacoes i "
+        "WHERE date(i.data_hora) BETWEEN date('now','-29 days') AND date('now') "
+        "GROUP BY dia ORDER BY dia"
+    )
+    cred_trend = query(
+        "SELECT date(data_contratacao) AS dia, COUNT(*) AS n FROM prospeccoes "
+        "WHERE etapa = 'credenciado' AND date(data_contratacao) BETWEEN date('now','-29 days') AND date('now') "
+        "GROUP BY dia ORDER BY dia"
+    )
+
+    if atividades or cred_trend:
+        st.markdown('<div class="md-section">Tendência Corporativa</div>', unsafe_allow_html=True)
+        dias = [d["dia"] for d in atividades]
+        inter_val = [d["n"] for d in atividades]
+        cred_map = {d["dia"]: d["n"] for d in cred_trend}
+        fig_trend = go.Figure()
+        fig_trend.add_trace(
+            go.Scatter(
+                x=dias,
+                y=inter_val,
+                name="Interações",
+                mode="lines+markers",
+                line=dict(color="#1E6B8A", width=3),
+            )
+        )
+        fig_trend.add_trace(
+            go.Bar(
+                x=dias,
+                y=[cred_map.get(d, 0) for d in dias],
+                name="Credenciados",
+                marker_color="#27AE60",
+                opacity=0.75,
+            )
+        )
+        fig_trend.update_layout(
+            height=300,
+            margin=dict(t=30, b=10, l=10, r=10),
+            legend=dict(orientation="h", y=1.1),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            xaxis=dict(showgrid=False),
+            yaxis=dict(showgrid=True, gridcolor="#f0f0f0"),
+        )
+        st.plotly_chart(fig_trend, use_container_width=True)
+
+    inativos = query(
+        """
+        SELECT p.id, pr.razao_social, pj.nome AS projeto, MAX(i.data_hora) AS ultima_interacao
+        FROM prospeccoes p
+        JOIN prestadores pr ON pr.id = p.prestador_id
+        JOIN projetos pj ON pj.id = p.projeto_id
+        LEFT JOIN interacoes i ON i.prospeccao_id = p.id
+        WHERE p.etapa NOT IN ('credenciado','declinado')
+        GROUP BY p.id
+        HAVING ultima_interacao IS NULL OR date(ultima_interacao) <= date('now','-14 days')
+        ORDER BY ultima_interacao ASC
+        LIMIT 8
+        """
+    )
+
+    st.markdown('<div class="md-section">Alertas de Inatividade</div>', unsafe_allow_html=True)
+    if inativos:
+        for item in inativos:
+            ultima = item["ultima_interacao"] or "sem registro"
+            st.markdown(
+                f"""
+            <div class=\"fu-card\" style=\"border-left:3px solid #f29900;\">
+                <span class=\"fu-dot\">⚠️</span>
+                <div><div class=\"fu-name\">{item['razao_social']}</div>
+                <div class=\"fu-sub\">Projeto: {item['projeto']} · Última interação: {ultima}</div></div>
+            </div>
+            """,
+                unsafe_allow_html=True,
+            )
+    else:
+        st.success("✅ Nenhuma prospecção inativa detectada nos últimos 14 dias.")
+
+    ranking_geral = query(
+        """
+        SELECT u.nome,
+               COALESCE(i.interacoes, 0) AS interacoes,
+               COALESCE(c.credenciados, 0) AS credenciados
+        FROM usuarios u
+        LEFT JOIN (
+            SELECT executivo_id, COUNT(*) AS interacoes
+            FROM interacoes
+            GROUP BY executivo_id
+        ) i ON i.executivo_id = u.id
+        LEFT JOIN (
+            SELECT executivo_id, COUNT(*) AS credenciados
+            FROM prospeccoes
+            WHERE etapa = 'credenciado'
+            GROUP BY executivo_id
+        ) c ON c.executivo_id = u.id
+        WHERE u.perfil = 'executivo'
+        ORDER BY credenciados DESC, interacoes DESC
+        LIMIT 8
+        """
+    )
+
+    if ranking_geral:
+        st.markdown('<div class="md-section">Ranking Geral de Executivos</div>', unsafe_allow_html=True)
+        df_rank = pd.DataFrame(ranking_geral)
+        df_rank.columns = ["Executivo", "Interações", "Credenciados"]
+        st.dataframe(df_rank, use_container_width=True, hide_index=True)
+
     prospeccoes = query(
         """
         SELECT p.*, pr.razao_social, pj.nome AS projeto_nome,
@@ -764,6 +934,31 @@ def dashboard_projeto(kpfx: str = "dp"):
         unsafe_allow_html=True,
     )
 
+    st.markdown("<br>", unsafe_allow_html=True)
+    c6, c7, c8 = st.columns(3)
+    with c6:
+        card(
+            "Meta Atingida",
+            f"{pct_meta}%",
+            f"{prof_credenciados} de {total_meta} profissionais",
+            cor="verde" if pct_meta >= 100 else "laranja" if pct_meta >= 60 else "",
+        )
+    with c7:
+        card(
+            "Prospecções em Andamento",
+            sum(1 for p in prospeccoes if p["etapa"] not in ("credenciado", "declinado")),
+            "Carteira ativa do projeto",
+            cor="laranja",
+        )
+    with c8:
+        conversao_local = round(credenciados_n / prospectados * 100, 1) if prospectados else 0
+        card(
+            "Conversão do Projeto",
+            f"{conversao_local}%",
+            "Credenciados x Prospectados",
+            cor="roxo",
+        )
+
     # ══════════════════════════════════════════════════════════
     # ABAS PRINCIPAIS DO PROJETO
     # ══════════════════════════════════════════════════════════
@@ -852,6 +1047,32 @@ def dashboard_projeto(kpfx: str = "dp"):
                 else [r for r in rows if r["Município"] == filtro_mun]
             )
 
+            df_mun = (
+                pd.DataFrame(rows)
+                .groupby("Município", as_index=False)[[lbl_meta, "Credenciados", "Em Prospecção"]]
+                .sum()
+            )
+            if not df_mun.empty:
+                df_mun["Atingido (%)"] = (
+                    df_mun["Credenciados"] / df_mun[lbl_meta] * 100
+                ).fillna(0).round(1)
+                df_mun["Gap"] = df_mun[lbl_meta] - df_mun["Credenciados"]
+
+                st.markdown(
+                    '<div class="md-section">Cobertura por Município</div>',
+                    unsafe_allow_html=True,
+                )
+                mun_top = df_mun.sort_values("Atingido (%)", ascending=False).head(4)
+                cols = st.columns(min(4, len(mun_top)))
+                for col, (_, row) in zip(cols, mun_top.iterrows()):
+                    with col:
+                        card(
+                            row["Município"],
+                            f"{row['Atingido (%)']}%",
+                            f"{row['Credenciados']} / {row[lbl_meta]}",
+                            cor="verde" if row["Atingido (%)"] >= 80 else "laranja",
+                        )
+
             if rows_filtrados:
                 df_g = (
                     pd.DataFrame(rows_filtrados)
@@ -923,6 +1144,46 @@ def dashboard_projeto(kpfx: str = "dp"):
                 AgGrid(
                     df_detalhado, gridOptions=grid_options, theme="alpine", height=320
                 )
+
+                benchmark_prestadores = query(
+                    "SELECT * FROM benchmark_prestadores WHERE projeto_id = ? ORDER BY cidade, razao_social",
+                    (proj["id"],),
+                )
+                if benchmark_prestadores:
+                    nomes_prosp = {
+                        normaliza_texto(p["razao_social"])
+                        for p in prospeccoes
+                        if p.get("razao_social")
+                    }
+                    bench_rows = []
+                    for b in benchmark_prestadores:
+                        nome_norm = normaliza_texto(b["razao_social"])
+                        status = (
+                            "Coincidente"
+                            if nome_norm in nomes_prosp
+                            else "Exclusivo"
+                        )
+                        bench_rows.append(
+                            {
+                                "Prestador Benchmark": b["razao_social"],
+                                "Cidade": b["cidade"],
+                                "Especialidade": b["especialidade"],
+                                "Status": status,
+                            }
+                        )
+
+                    st.markdown(
+                        '<div class="md-section">Benchmark de Prestadores</div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.caption(
+                        f"Total benchmark: {len(benchmark_prestadores)} — Coindicentes: {sum(1 for r in bench_rows if r['Status'] == 'Coincidente')} — Exclusivos: {sum(1 for r in bench_rows if r['Status'] == 'Exclusivo')}"
+                    )
+                    df_bench = pd.DataFrame(bench_rows)
+                    gb_bench = GridOptionsBuilder.from_dataframe(df_bench)
+                    gb_bench.configure_default_column(filter=True, sortable=True)
+                    gb_bench.configure_pagination(paginationPageSize=10)
+                    AgGrid(df_bench, gridOptions=gb_bench.build(), theme="alpine", height=280)
             else:
                 st.info("Nenhuma meta encontrada para o filtro selecionado.")
         else:
@@ -938,8 +1199,61 @@ def dashboard_projeto(kpfx: str = "dp"):
             p for p in prospeccoes if p["etapa"] not in ("credenciado", "declinado")
         ]
 
+        followups_hoje_proj = query(
+            """
+            SELECT COUNT(DISTINCT i.prospeccao_id) AS c
+            FROM interacoes i
+            JOIN prospeccoes p ON p.id = i.prospeccao_id
+            WHERE p.projeto_id = ? AND i.data_followup = date('now')
+            """,
+            (proj["id"],),
+        )[0]["c"]
+        followups_venc_proj = query(
+            """
+            SELECT COUNT(DISTINCT i.prospeccao_id) AS c
+            FROM interacoes i
+            JOIN prospeccoes p ON p.id = i.prospeccao_id
+            WHERE p.projeto_id = ? AND i.data_followup < date('now')
+              AND p.etapa NOT IN ('credenciado','declinado')
+            """,
+            (proj["id"],),
+        )[0]["c"]
+
+        exec_ranking = query(
+            """
+            SELECT u.nome,
+                   COUNT(p.id) AS prospeccoes,
+                   SUM(CASE WHEN p.etapa = 'credenciado' THEN 1 ELSE 0 END) AS credenciados
+            FROM usuarios u
+            JOIN prospeccoes p ON p.executivo_id = u.id
+            WHERE p.projeto_id = ? AND u.perfil = 'executivo'
+            GROUP BY u.id
+            ORDER BY credenciados DESC, prospeccoes DESC
+            LIMIT 8
+            """,
+            (proj["id"],),
+        )
+
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            card("Prospecções em Andamento", len(abertas_proj), "Carteira ativa")
+        with c2:
+            card(
+                "Follow-ups Hoje",
+                followups_hoje_proj,
+                "Pendentes na agenda",
+                cor="laranja" if followups_hoje_proj else "",
+            )
+        with c3:
+            card(
+                "Follow-ups Vencidos",
+                followups_venc_proj,
+                "Ação imediata",
+                cor="vermelho" if followups_venc_proj else "",
+            )
+
         if abertas_proj:
-            col_funil, col_lista = st.columns([1.2, 1])
+            col_funil, col_lista = st.columns([1.3, 1])
             with col_funil:
                 fig_f = funil_chart(abertas_proj)
                 if fig_f:
@@ -966,8 +1280,17 @@ def dashboard_projeto(kpfx: str = "dp"):
                 gb_ab = GridOptionsBuilder.from_dataframe(df_abertas)
                 gb_ab.configure_default_column(filter=True, sortable=True)
                 AgGrid(
-                    df_abertas, gridOptions=gb_ab.build(), theme="alpine", height=280
+                    df_abertas, gridOptions=gb_ab.build(), theme="alpine", height=320
                 )
+
+            if exec_ranking:
+                st.markdown(
+                    '<div class="md-section">Ranking de Executivos</div>',
+                    unsafe_allow_html=True,
+                )
+                df_exec = pd.DataFrame(exec_ranking)
+                df_exec.columns = ["Executivo", "Prospecções", "Credenciados"]
+                st.dataframe(df_exec, use_container_width=True, hide_index=True)
         else:
             st.success("🎉 Todas as prospecções deste projeto foram concluídas!")
 
@@ -1001,6 +1324,39 @@ def dashboard_projeto(kpfx: str = "dp"):
             df_cron = df_cron.sort_values("Data de Fechamento")
             df_cron["Acumulado"] = df_cron["Quantidade"].cumsum()
 
+            total_30 = df_cron["Quantidade"].tail(30).sum() if not df_cron.empty else 0
+            media_diaria = round(total_30 / 30, 2) if total_30 else 0
+            restante = max(total_meta - prof_credenciados, 0)
+            dias_para_meta = ceil(restante / media_diaria) if media_diaria > 0 else None
+            previsao = (
+                (date.today() + timedelta(days=dias_para_meta)).strftime("%d/%m/%Y")
+                if dias_para_meta
+                else "Dados insuficientes"
+            )
+
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                card(
+                    "Meta Restante",
+                    f"{restante} perf.",
+                    "Profissionais ainda a credenciar",
+                    cor="laranja" if restante > 0 else "verde",
+                )
+            with c2:
+                card(
+                    "Média 30d",
+                    f"{media_diaria} / dia",
+                    "Velocidade atual de credenciamento",
+                    cor="roxo",
+                )
+            with c3:
+                card(
+                    "Conclusão Prevista",
+                    previsao,
+                    "Estimativa com ritmo atual",
+                    cor="verde" if dias_para_meta and dias_para_meta <= 30 else "laranja",
+                )
+
             fig_line = go.Figure()
             fig_line.add_trace(
                 go.Scatter(
@@ -1011,9 +1367,26 @@ def dashboard_projeto(kpfx: str = "dp"):
                     line=dict(color="#27AE60", width=3),
                 )
             )
+
+            if restante and media_diaria > 0:
+                ultima_data = df_cron["Data de Fechamento"].max()
+                base_acum = df_cron["Acumulado"].iloc[-1]
+                proj_days = dias_para_meta or 0
+                proj_dates = [ultima_data + timedelta(days=i) for i in range(1, proj_days + 1)]
+                proj_values = [base_acum + round(media_diaria * i) for i in range(1, proj_days + 1)]
+                fig_line.add_trace(
+                    go.Scatter(
+                        x=proj_dates,
+                        y=proj_values,
+                        mode="lines",
+                        name="Projeção",
+                        line=dict(color="#d93025", dash="dash"),
+                    )
+                )
+
             fig_line.update_layout(
                 title="Velocidade de Entrada de Novos Prestadores (Acumulado)",
-                height=220,
+                height=300,
                 margin=dict(t=40, b=10, l=10, r=10),
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
@@ -1026,7 +1399,7 @@ def dashboard_projeto(kpfx: str = "dp"):
             gb_cr.configure_default_column(filter=True, sortable=True)
             gb_cr.configure_pagination(paginationPageSize=10)
             st.markdown("<br>", unsafe_allow_html=True)
-            AgGrid(df_cred, gridOptions=gb_cr.build(), theme="alpine", height=280)
+            AgGrid(df_cred, gridOptions=gb_cr.build(), theme="alpine", height=320)
         else:
             st.info(
                 "Nenhum prestador foi finalizado como 'Credenciado' para este projeto ainda."
