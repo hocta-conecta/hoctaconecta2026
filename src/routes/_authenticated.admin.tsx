@@ -1,7 +1,7 @@
 import * as React from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ShieldAlert, UserCog, Building2, Plus, Pencil } from "lucide-react";
+import { Loader2, ShieldAlert, UserCog, Building2, Plus, Pencil, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -35,6 +35,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
@@ -62,6 +63,7 @@ type Cliente = {
 function AdminPage() {
   const { isAdmin, loading } = useAuth();
   const qc = useQueryClient();
+  const [openNewUser, setOpenNewUser] = React.useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-users"],
@@ -143,13 +145,28 @@ function AdminPage() {
       </header>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UserCog className="h-5 w-5" /> Usuários
-          </CardTitle>
-          <CardDescription>
-            Novos usuários entram pela tela de cadastro. Aqui você ajusta papéis e status.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <UserCog className="h-5 w-5" /> Usuários
+            </CardTitle>
+            <CardDescription>
+              Gestão de usuários, papéis e status de acesso.
+            </CardDescription>
+          </div>
+          <Dialog open={openNewUser} onOpenChange={setOpenNewUser}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-1" /> Novo Usuário
+              </Button>
+            </DialogTrigger>
+            <NewUserDialog
+              onSuccess={() => {
+                setOpenNewUser(false);
+                qc.invalidateQueries({ queryKey: ["admin-users"] });
+              }}
+            />
+          </Dialog>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -362,6 +379,135 @@ function ClientesSection() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function NewUserDialog({ onSuccess }: { onSuccess: () => void }) {
+  const [nome, setNome] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [senha, setSenha] = React.useState("");
+  const [role, setRole] = React.useState<AppRole>("executivo");
+  const [loading, setLoading] = React.useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!nome.trim() || !email.trim() || !senha.trim()) {
+      toast.error("Preencha todos os campos obrigatórios");
+      return;
+    }
+
+    if (senha.length < 6) {
+      toast.error("A senha deve ter no mínimo 6 caracteres");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 1. Criar usuário no Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password: senha,
+        options: {
+          data: { nome: nome.trim() },
+          emailRedirectTo: window.location.origin,
+        },
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("Falha ao criar usuário");
+
+      // 2. Atualizar o papel (role) do usuário
+      if (role !== "executivo") {
+        // Remover papel anterior e inserir novo
+        await supabase.from("user_roles").delete().eq("user_id", authData.user.id);
+        const { error: roleError } = await supabase
+          .from("user_roles")
+          .insert({ user_id: authData.user.id, role });
+        if (roleError) throw roleError;
+      }
+
+      toast.success(
+        `Usuário **${nome}** criado com sucesso! Papel: ${role}`
+      );
+      setNome("");
+      setEmail("");
+      setSenha("");
+      setRole("executivo");
+      onSuccess();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Erro ao criar usuário");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <DialogContent className="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle>Novo Usuário</DialogTitle>
+      </DialogHeader>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="novo-nome">Nome Completo *</Label>
+          <Input
+            id="novo-nome"
+            placeholder="Ex: João Silva"
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            disabled={loading}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="novo-email">E-mail *</Label>
+          <Input
+            id="novo-email"
+            type="email"
+            placeholder="usuario@hocta.com.br"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={loading}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="novo-senha">Senha Temporária *</Label>
+          <Input
+            id="novo-senha"
+            type="password"
+            placeholder="Mínimo 6 caracteres"
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
+            disabled={loading}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Papel (Role) *</Label>
+          <Select value={role} onValueChange={(v) => setRole(v as AppRole)}>
+            <SelectTrigger disabled={loading}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {APP_ROLES.map((r) => (
+                <SelectItem key={r.value} value={r.value}>
+                  {r.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <DialogFooter>
+          <Button type="submit" disabled={loading}>
+            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Criar Usuário
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
   );
 }
 
