@@ -13,7 +13,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { Plus, Loader2, Pencil, Trash2, GripVertical } from "lucide-react";
+import { Plus, Loader2, Pencil, Trash2, GripVertical, Target } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +36,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MunicipioMultiCombobox } from "@/components/municipio-combobox";
+import { ProjetoDetailsDialog } from "@/components/projeto-details-dialog";
 
 export const Route = createFileRoute("/_authenticated/projetos")({
   component: ProjetosPage,
@@ -51,13 +53,13 @@ type Projeto = {
   data_prevista: string | null;
   status: string;
   clientes: { nome: string } | null;
+  projeto_municipios?: { municipio_codigo: number }[];
 };
 
 type FormValues = {
   nome: string;
   cliente_id: string;
   descricao: string;
-  municipios: string;
   data_inicio: string;
   data_prevista: string;
   status: string;
@@ -66,7 +68,7 @@ type FormValues = {
 async function fetchProjetos(): Promise<Projeto[]> {
   const { data, error } = await supabase
     .from("projetos")
-    .select("*, clientes(nome)")
+    .select("*, clientes(nome), projeto_municipios(municipio_codigo)")
     .order("id", { ascending: false });
   if (error) throw error;
   return (data ?? []) as Projeto[];
@@ -92,13 +94,14 @@ function ProjetosPage() {
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Projeto | null>(null);
   const [activeId, setActiveId] = React.useState<number | null>(null);
+  const [municipiosSel, setMunicipiosSel] = React.useState<number[]>([]);
+  const [detailsProjeto, setDetailsProjeto] = React.useState<Projeto | null>(null);
 
   const form = useForm<FormValues>({
     defaultValues: {
       nome: "",
       cliente_id: "",
       descricao: "",
-      municipios: "",
       data_inicio: "",
       data_prevista: "",
       status: "ativo",
@@ -138,20 +141,36 @@ function ProjetosPage() {
         nome: values.nome,
         cliente_id: values.cliente_id ? Number(values.cliente_id) : null,
         descricao: values.descricao || null,
-        municipios: values.municipios || null,
         data_inicio: values.data_inicio || null,
         data_prevista: values.data_prevista || null,
         status: values.status,
       };
+      let projetoId: number;
       if (editing) {
         const { error } = await supabase
           .from("projetos")
           .update(payload)
           .eq("id", editing.id);
         if (error) throw error;
+        projetoId = editing.id;
       } else {
-        const { error } = await supabase.from("projetos").insert(payload);
+        const { data: inserted, error } = await supabase
+          .from("projetos")
+          .insert(payload)
+          .select("id")
+          .single();
         if (error) throw error;
+        projetoId = (inserted as { id: number }).id;
+      }
+      // Sync municípios
+      await supabase.from("projeto_municipios").delete().eq("projeto_id", projetoId);
+      if (municipiosSel.length) {
+        const rows = municipiosSel.map((c) => ({
+          projeto_id: projetoId,
+          municipio_codigo: c,
+        }));
+        const { error: e2 } = await supabase.from("projeto_municipios").insert(rows);
+        if (e2) throw e2;
       }
     },
     onSuccess: () => {
@@ -180,11 +199,11 @@ function ProjetosPage() {
       nome: "",
       cliente_id: "",
       descricao: "",
-      municipios: "",
       data_inicio: "",
       data_prevista: "",
       status: "ativo",
     });
+    setMunicipiosSel([]);
     setOpen(true);
   };
   const openEdit = (p: Projeto) => {
@@ -193,11 +212,11 @@ function ProjetosPage() {
       nome: p.nome,
       cliente_id: p.cliente_id ? String(p.cliente_id) : "",
       descricao: p.descricao ?? "",
-      municipios: p.municipios ?? "",
       data_inicio: p.data_inicio ?? "",
       data_prevista: p.data_prevista ?? "",
       status: p.status,
     });
+    setMunicipiosSel((p.projeto_municipios ?? []).map((m) => m.municipio_codigo));
     setOpen(true);
   };
 
@@ -246,6 +265,7 @@ function ProjetosPage() {
                 title={col.label}
                 projetos={data.filter((p) => p.status === col.value)}
                 onEdit={openEdit}
+                onOpenDetails={(p) => setDetailsProjeto(p)}
                 onRemove={(id) => {
                   if (confirm("Remover este projeto?")) remove.mutate(id);
                 }}
@@ -259,7 +279,7 @@ function ProjetosPage() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "Editar projeto" : "Novo projeto"}</DialogTitle>
           </DialogHeader>
@@ -314,13 +334,10 @@ function ProjetosPage() {
               <Textarea {...form.register("descricao")} />
             </div>
             <div className="space-y-2">
-              <Label>Municípios</Label>
-              <Textarea
-                {...form.register("municipios")}
-                placeholder="Um por linha"
-              />
+              <Label>Municípios do projeto</Label>
+              <MunicipioMultiCombobox value={municipiosSel} onChange={setMunicipiosSel} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Data de início</Label>
                 <Input type="date" {...form.register("data_inicio")} />
@@ -342,6 +359,14 @@ function ProjetosPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {detailsProjeto && (
+        <ProjetoDetailsDialog
+          projetoId={detailsProjeto.id}
+          projetoNome={detailsProjeto.nome}
+          onClose={() => setDetailsProjeto(null)}
+        />
+      )}
     </div>
   );
 }
@@ -351,12 +376,14 @@ function Column({
   title,
   projetos,
   onEdit,
+  onOpenDetails,
   onRemove,
 }: {
   id: string;
   title: string;
   projetos: Projeto[];
   onEdit: (p: Projeto) => void;
+  onOpenDetails: (p: Projeto) => void;
   onRemove: (id: number) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
@@ -379,6 +406,7 @@ function Column({
             key={p.id}
             projeto={p}
             onEdit={onEdit}
+            onOpenDetails={onOpenDetails}
             onRemove={onRemove}
           />
         ))}
@@ -390,15 +418,18 @@ function Column({
 function DraggableCard({
   projeto,
   onEdit,
+  onOpenDetails,
   onRemove,
 }: {
   projeto: Projeto;
   onEdit: (p: Projeto) => void;
+  onOpenDetails: (p: Projeto) => void;
   onRemove: (id: number) => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: projeto.id,
   });
+  const nMun = projeto.projeto_municipios?.length ?? 0;
   return (
     <div
       ref={setNodeRef}
@@ -421,14 +452,17 @@ function DraggableCard({
               {projeto.clientes.nome}
             </p>
           )}
-          {projeto.municipios && (
-            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-              {projeto.municipios.split("\n").join(", ")}
+          {nMun > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {nMun} {nMun === 1 ? "município" : "municípios"}
             </p>
           )}
         </div>
       </div>
       <div className="flex justify-end gap-1 mt-2">
+        <Button variant="ghost" size="icon" onClick={() => onOpenDetails(projeto)} title="Metas e benchmark">
+          <Target className="h-3.5 w-3.5" />
+        </Button>
         <Button variant="ghost" size="icon" onClick={() => onEdit(projeto)}>
           <Pencil className="h-3.5 w-3.5" />
         </Button>
