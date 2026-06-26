@@ -2,7 +2,7 @@ import * as React from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
-import { Plus, Pencil, Trash2, Search, Loader2, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Loader2, Users, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +40,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { EspecialidadeMultiSelect, useEspecialidades } from "@/components/especialidade-multiselect";
+import { MunicipioMultiCombobox } from "@/components/municipio-combobox";
 
 export const Route = createFileRoute("/_authenticated/prestadores")({
   component: PrestadoresPage,
@@ -57,6 +59,8 @@ type Prestador = {
   telefone: string | null;
   email: string | null;
   observacoes: string | null;
+  prestador_especialidades?: { especialidade_id: number | null; especialidade: string }[];
+  prestador_municipios?: { municipio_codigo: number }[];
 };
 
 type FormValues = Omit<Prestador, "id">;
@@ -77,7 +81,7 @@ const empty: FormValues = {
 async function fetchPrestadores(): Promise<Prestador[]> {
   const { data, error } = await supabase
     .from("prestadores")
-    .select("*")
+    .select("*, prestador_especialidades(especialidade_id,especialidade), prestador_municipios(municipio_codigo)")
     .order("razao_social");
   if (error) throw error;
   return (data ?? []) as Prestador[];
@@ -89,12 +93,15 @@ function PrestadoresPage() {
     queryKey: ["prestadores"],
     queryFn: fetchPrestadores,
   });
+  const { data: especialidadesCat = [] } = useEspecialidades();
 
   const [q, setQ] = React.useState("");
   const [tipo, setTipo] = React.useState("all");
   const [uf, setUf] = React.useState("all");
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Prestador | null>(null);
+  const [especialidadesSel, setEspecialidadesSel] = React.useState<number[]>([]);
+  const [municipiosSel, setMunicipiosSel] = React.useState<number[]>([]);
 
   const form = useForm<FormValues>({ defaultValues: empty });
 
@@ -115,6 +122,17 @@ function PrestadoresPage() {
     });
   }, [data, q, tipo, uf]);
 
+  // Ordena por nº de especialidades desc (estratégia multi-especialidade)
+  const sorted = React.useMemo(
+    () =>
+      [...filtered].sort(
+        (a, b) =>
+          (b.prestador_especialidades?.length ?? 0) -
+          (a.prestador_especialidades?.length ?? 0),
+      ),
+    [filtered],
+  );
+
   const save = useMutation({
     mutationFn: async (values: FormValues) => {
       const payload = {
@@ -127,15 +145,50 @@ function PrestadoresPage() {
         observacoes: values.observacoes || null,
         uf: values.uf.toUpperCase().slice(0, 2),
       };
+      let prestadorId: number;
       if (editing) {
         const { error } = await supabase
           .from("prestadores")
           .update(payload)
           .eq("id", editing.id);
         if (error) throw error;
+        prestadorId = editing.id;
       } else {
-        const { error } = await supabase.from("prestadores").insert(payload);
+        const { data: inserted, error } = await supabase
+          .from("prestadores")
+          .insert(payload)
+          .select("id")
+          .single();
         if (error) throw error;
+        prestadorId = (inserted as { id: number }).id;
+      }
+
+      // Sincroniza especialidades (N:N) — apaga e recria
+      await supabase
+        .from("prestador_especialidades")
+        .delete()
+        .eq("prestador_id", prestadorId);
+      if (especialidadesSel.length) {
+        const rows = especialidadesSel.map((id) => {
+          const nome = especialidadesCat.find((e) => e.id === id)?.nome ?? "";
+          return { prestador_id: prestadorId, especialidade_id: id, especialidade: nome };
+        });
+        const { error: e2 } = await supabase.from("prestador_especialidades").insert(rows);
+        if (e2) throw e2;
+      }
+
+      // Sincroniza municípios cobertos
+      await supabase
+        .from("prestador_municipios")
+        .delete()
+        .eq("prestador_id", prestadorId);
+      if (municipiosSel.length) {
+        const rows = municipiosSel.map((c) => ({
+          prestador_id: prestadorId,
+          municipio_codigo: c,
+        }));
+        const { error: e3 } = await supabase.from("prestador_municipios").insert(rows);
+        if (e3) throw e3;
       }
     },
     onSuccess: () => {
@@ -161,31 +214,39 @@ function PrestadoresPage() {
   const openNew = () => {
     setEditing(null);
     form.reset(empty);
+    setEspecialidadesSel([]);
+    setMunicipiosSel([]);
     setOpen(true);
   };
   const openEdit = (p: Prestador) => {
     setEditing(p);
     form.reset({ ...empty, ...p });
+    setEspecialidadesSel(
+      (p.prestador_especialidades ?? [])
+        .map((pe) => pe.especialidade_id)
+        .filter((v): v is number => v != null),
+    );
+    setMunicipiosSel((p.prestador_municipios ?? []).map((m) => m.municipio_codigo));
     setOpen(true);
   };
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:flex-wrap sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-3xl font-bold tracking-tight">Prestadores</h1>
           <p className="text-muted-foreground mt-1">
             Cadastro e filtros da rede prestadora.
           </p>
         </div>
-        <Button variant="gradient" onClick={openNew}>
+        <Button variant="gradient" onClick={openNew} className="w-auto">
           <Plus /> Novo prestador
         </Button>
       </header>
 
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
             <div className="relative flex-1 min-w-56">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -196,7 +257,7 @@ function PrestadoresPage() {
               />
             </div>
             <Select value={tipo} onValueChange={setTipo}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
               <SelectContent>
@@ -209,7 +270,7 @@ function PrestadoresPage() {
               </SelectContent>
             </Select>
             <Select value={uf} onValueChange={setUf}>
-              <SelectTrigger className="w-28">
+              <SelectTrigger className="w-full sm:w-28">
                 <SelectValue placeholder="UF" />
               </SelectTrigger>
               <SelectContent>
@@ -228,7 +289,7 @@ function PrestadoresPage() {
             <div className="flex items-center gap-2 text-muted-foreground py-8">
               <Loader2 className="animate-spin h-4 w-4" /> Carregando...
             </div>
-          ) : filtered.length === 0 ? (
+          ) : sorted.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Users className="mx-auto h-10 w-10 opacity-30 mb-2" />
               Nenhum prestador encontrado.
@@ -239,17 +300,26 @@ function PrestadoresPage() {
                 <TableRow>
                   <TableHead>Razão social</TableHead>
                   <TableHead>Tipo</TableHead>
-                  <TableHead>Especialidade</TableHead>
+                  <TableHead>Especialidades</TableHead>
                   <TableHead>Cidade/UF</TableHead>
                   <TableHead>Contato</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((p) => (
+                {sorted.map((p) => {
+                  const nEsp = p.prestador_especialidades?.length ?? 0;
+                  return (
                   <TableRow key={p.id}>
                     <TableCell>
-                      <div className="font-medium">{p.razao_social}</div>
+                      <div className="font-medium flex items-center gap-2">
+                        {p.razao_social}
+                        {nEsp >= 3 && (
+                          <Badge variant="success" className="gap-1">
+                            <Sparkles className="h-3 w-3" /> MULTI
+                          </Badge>
+                        )}
+                      </div>
                       {p.nome_fantasia && (
                         <div className="text-xs text-muted-foreground">
                           {p.nome_fantasia}
@@ -261,7 +331,22 @@ function PrestadoresPage() {
                         {labelOf(PRESTADOR_TIPOS, p.tipo)}
                       </Badge>
                     </TableCell>
-                    <TableCell>{p.especialidade || "—"}</TableCell>
+                    <TableCell>
+                      {nEsp > 0 ? (
+                        <div className="flex flex-wrap gap-1 max-w-xs">
+                          {p.prestador_especialidades!.slice(0, 3).map((e, i) => (
+                            <Badge key={i} variant="outline" className="text-xs">
+                              {e.especialidade}
+                            </Badge>
+                          ))}
+                          {nEsp > 3 && (
+                            <Badge variant="outline" className="text-xs">+{nEsp - 3}</Badge>
+                          )}
+                        </div>
+                      ) : (
+                        p.especialidade || "—"
+                      )}
+                    </TableCell>
                     <TableCell>
                       {p.cidade}
                       {p.uf ? `/${p.uf}` : ""}
@@ -287,7 +372,8 @@ function PrestadoresPage() {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -295,7 +381,7 @@ function PrestadoresPage() {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editing ? "Editar prestador" : "Novo prestador"}
@@ -309,7 +395,7 @@ function PrestadoresPage() {
               <Label>Razão social *</Label>
               <Input {...form.register("razao_social", { required: true })} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Nome fantasia</Label>
                 <Input {...form.register("nome_fantasia")} />
@@ -319,33 +405,37 @@ function PrestadoresPage() {
                 <Input {...form.register("cnpj")} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Tipo</Label>
-                <Select
-                  value={form.watch("tipo")}
-                  onValueChange={(v) => form.setValue("tipo", v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRESTADOR_TIPOS.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Especialidade</Label>
-                <Input {...form.register("especialidade")} />
-              </div>
+            <div className="space-y-2">
+              <Label>Tipo</Label>
+              <Select
+                value={form.watch("tipo")}
+                onValueChange={(v) => form.setValue("tipo", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRESTADOR_TIPOS.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-2">
+              <Label>Especialidades atendidas</Label>
+              <EspecialidadeMultiSelect
+                value={especialidadesSel}
+                onChange={setEspecialidadesSel}
+              />
+              <p className="text-xs text-muted-foreground">
+                Clínicas multiespecialidade (≥3) ganham destaque na listagem.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-2 col-span-2">
-                <Label>Cidade *</Label>
+                <Label>Cidade-sede *</Label>
                 <Input {...form.register("cidade", { required: true })} />
               </div>
               <div className="space-y-2">
@@ -353,7 +443,11 @@ function PrestadoresPage() {
                 <Input maxLength={2} {...form.register("uf", { required: true })} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Municípios cobertos</Label>
+              <MunicipioMultiCombobox value={municipiosSel} onChange={setMunicipiosSel} />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Telefone</Label>
                 <Input {...form.register("telefone")} />
