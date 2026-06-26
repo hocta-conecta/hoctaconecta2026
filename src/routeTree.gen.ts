@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedProspeccaoRouteImport } from './routes/_authenticated.prospeccao'
 import { Route as AuthenticatedProjetosRouteImport } from './routes/_authenticated.projetos'
 import { Route as AuthenticatedPrestadoresRouteImport } from './routes/_authenticated.prestadores'
 import { Route as AuthenticatedMeuPerfilRouteImport } from './routes/_authenticated.meu-perfil'
@@ -31,6 +32,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedProspeccaoRoute = AuthenticatedProspeccaoRouteImport.update({
+  id: '/prospeccao',
+  path: '/prospeccao',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedProjetosRoute = AuthenticatedProjetosRouteImport.update({
   id: '/projetos',
@@ -67,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/meu-perfil': typeof AuthenticatedMeuPerfilRoute
   '/prestadores': typeof AuthenticatedPrestadoresRoute
   '/projetos': typeof AuthenticatedProjetosRoute
+  '/prospeccao': typeof AuthenticatedProspeccaoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/meu-perfil': typeof AuthenticatedMeuPerfilRoute
   '/prestadores': typeof AuthenticatedPrestadoresRoute
   '/projetos': typeof AuthenticatedProjetosRoute
+  '/prospeccao': typeof AuthenticatedProspeccaoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/_authenticated/meu-perfil': typeof AuthenticatedMeuPerfilRoute
   '/_authenticated/prestadores': typeof AuthenticatedPrestadoresRoute
   '/_authenticated/projetos': typeof AuthenticatedProjetosRoute
+  '/_authenticated/prospeccao': typeof AuthenticatedProspeccaoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/meu-perfil'
     | '/prestadores'
     | '/projetos'
+    | '/prospeccao'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/meu-perfil'
     | '/prestadores'
     | '/projetos'
+    | '/prospeccao'
   id:
     | '__root__'
     | '/'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/_authenticated/meu-perfil'
     | '/_authenticated/prestadores'
     | '/_authenticated/projetos'
+    | '/_authenticated/prospeccao'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -147,6 +159,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/prospeccao': {
+      id: '/_authenticated/prospeccao'
+      path: '/prospeccao'
+      fullPath: '/prospeccao'
+      preLoaderRoute: typeof AuthenticatedProspeccaoRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/projetos': {
       id: '/_authenticated/projetos'
@@ -192,6 +211,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedMeuPerfilRoute: typeof AuthenticatedMeuPerfilRoute
   AuthenticatedPrestadoresRoute: typeof AuthenticatedPrestadoresRoute
   AuthenticatedProjetosRoute: typeof AuthenticatedProjetosRoute
+  AuthenticatedProspeccaoRoute: typeof AuthenticatedProspeccaoRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -200,6 +220,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMeuPerfilRoute: AuthenticatedMeuPerfilRoute,
   AuthenticatedPrestadoresRoute: AuthenticatedPrestadoresRoute,
   AuthenticatedProjetosRoute: AuthenticatedProjetosRoute,
+  AuthenticatedProspeccaoRoute: AuthenticatedProspeccaoRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
