@@ -71,7 +71,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { PRESTADOR_TIPOS } from "@/lib/domain";
 import { EspecialidadeMultiSelect } from "@/components/especialidade-multiselect";
-import { MunicipioMultiCombobox } from "@/components/municipio-combobox";
+import { 
+  MunicipioMultiCombobox, 
+  UfSingleSelect, 
+  CidadeSingleCombobox 
+} from "@/components/municipio-combobox";
 
 export const Route = createFileRoute("/_authenticated/prospeccao")({
   component: ProspeccaoPage,
@@ -761,13 +765,23 @@ function QuickPrestadorForm({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="space-y-2 col-span-2">
-              <Label>Cidade-sede *</Label>
-              <Input {...form.register("cidade", { required: true })} />
-            </div>
             <div className="space-y-2">
               <Label>UF *</Label>
-              <Input maxLength={2} {...form.register("uf", { required: true })} />
+              <UfSingleSelect 
+                value={form.watch("uf")} 
+                onChange={(v) => {
+                  form.setValue("uf", v);
+                  form.setValue("cidade", "");
+                }} 
+              />
+            </div>
+            <div className="space-y-2 col-span-2">
+              <Label>Cidade-sede *</Label>
+              <CidadeSingleCombobox 
+                uf={form.watch("uf")} 
+                value={form.watch("cidade")} 
+                onChange={(v) => form.setValue("cidade", v)} 
+              />
             </div>
           </div>
 

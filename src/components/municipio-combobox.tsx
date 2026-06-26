@@ -23,6 +23,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 export type Municipio = {
@@ -391,5 +398,130 @@ export function MunicipioMultiCombobox({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Componente para seleção de UF única
+ */
+export function UfSingleSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (uf: string) => void;
+}) {
+  const { data: ufs = [] } = useQuery({
+    queryKey: ["ufs-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("municipios")
+        .select("uf")
+        .order("uf");
+      if (error) throw error;
+      const uniqueUfs = Array.from(new Set((data ?? []).map((m) => m.uf)));
+      return uniqueUfs;
+    },
+    staleTime: Infinity,
+  });
+
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="w-full">
+        <SelectValue placeholder="Selecione a UF" />
+      </SelectTrigger>
+      <SelectContent>
+        {ufs.map((uf) => (
+          <SelectItem key={uf} value={uf}>
+            {uf}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/**
+ * Componente para seleção de Cidade única com filtro por UF
+ */
+export function CidadeSingleCombobox({
+  uf,
+  value,
+  onChange,
+}: {
+  uf: string;
+  value: string;
+  onChange: (cidade: string) => void;
+}) {
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const debouncedSearch = useDebounce(searchTerm, 300);
+
+  const { data: cidades = [], isLoading } = useQuery({
+    queryKey: ["cidades-search", uf, debouncedSearch],
+    queryFn: async () => {
+      if (!uf) return [];
+      let query = supabase
+        .from("municipios")
+        .select("nome")
+        .eq("uf", uf)
+        .order("nome")
+        .limit(50);
+      
+      if (debouncedSearch) {
+        query = query.ilike("nome", `%${debouncedSearch}%`);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return Array.from(new Set((data ?? []).map(m => m.nome)));
+    },
+    enabled: !!uf,
+  });
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          className="w-full justify-between font-normal"
+          disabled={!uf}
+        >
+          {value || (uf ? "Selecione a cidade..." : "Selecione a UF primeiro")}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        <Command shouldFilter={false}>
+          <CommandInput 
+            placeholder="Buscar cidade..." 
+            onValueChange={setSearchTerm}
+          />
+          <CommandList>
+            {isLoading && <div className="p-2 text-xs text-muted-foreground">Carregando...</div>}
+            {!isLoading && cidades.length === 0 && <CommandEmpty>Nenhuma cidade encontrada.</CommandEmpty>}
+            <CommandGroup>
+              {cidades.map((cidade) => (
+                <CommandItem
+                  key={cidade}
+                  value={cidade}
+                  onSelect={() => {
+                    onChange(cidade);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === cidade ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {cidade}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
