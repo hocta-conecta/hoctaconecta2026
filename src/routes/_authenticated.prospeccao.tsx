@@ -26,6 +26,8 @@ import {
   History,
   UserPlus,
   Trash2,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -52,7 +54,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+import { PRESTADOR_TIPOS } from "@/lib/domain";
 
 export const Route = createFileRoute("/_authenticated/prospeccao")({
   component: ProspeccaoPage,
@@ -396,11 +413,12 @@ function ProspeccaoForm({
   open: boolean;
   onClose: () => void;
   editing: Prospeccao | null;
-  prestadores: { id: number; razao_social: string }[];
+  prestadores: { id: number; razao_social: string; cidade: string; uf: string }[];
   projetos: { id: number; nome: string }[];
   userId: string | null;
 }) {
   const qc = useQueryClient();
+  const [showNewPrestador, setShowNewPrestador] = React.useState(false);
   const form = useForm<FormValues>({
     defaultValues: editing
       ? {
@@ -467,29 +485,62 @@ function ProspeccaoForm({
           className="space-y-4"
         >
           <div className="space-y-2">
-            <Label>Prestador *</Label>
-            <Select
-              value={form.watch("prestador_id")}
-              onValueChange={(v) => form.setValue("prestador_id", v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                {(() => {
-                  const selProjId = form.watch("projeto_id");
-                  const filteredPrestadores = selProjId 
-                    ? prestadores // Aqui poderíamos filtrar por municípios do projeto no futuro se prestador_municipios estivesse no fetch
-                    : prestadores;
-                  
-                  return filteredPrestadores.map((p) => (
-                    <SelectItem key={p.id} value={String(p.id)}>
-                      {p.razao_social} ({p.cidade}/{p.uf})
-                    </SelectItem>
-                  ));
-                })()}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center justify-between">
+              <Label>Prestador *</Label>
+              <Button 
+                type="button" 
+                variant="link" 
+                size="sm" 
+                className="h-auto p-0 text-xs"
+                onClick={() => setShowNewPrestador(true)}
+              >
+                <Plus className="h-3 w-3 mr-1" /> Novo prestador
+              </Button>
+            </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-full justify-between font-normal"
+                >
+                  {form.watch("prestador_id")
+                    ? prestadores.find((p) => String(p.id) === form.watch("prestador_id"))?.razao_social
+                    : "Selecione o prestador..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                <Command>
+                  <CommandInput placeholder="Buscar prestador..." />
+                  <CommandList>
+                    <CommandEmpty>Nenhum prestador encontrado.</CommandEmpty>
+                    <CommandGroup>
+                      {prestadores.map((p) => (
+                        <CommandItem
+                          key={p.id}
+                          value={p.razao_social}
+                          onSelect={() => {
+                            form.setValue("prestador_id", String(p.id));
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              form.watch("prestador_id") === String(p.id) ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <div className="flex flex-col">
+                            <span>{p.razao_social}</span>
+                            <span className="text-[10px] text-muted-foreground">{p.cidade}/{p.uf}</span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="space-y-2">
             <Label>Projeto</Label>
@@ -547,6 +598,98 @@ function ProspeccaoForm({
             </Button>
             <Button type="submit" variant="gradient" disabled={save.isPending}>
               {save.isPending && <Loader2 className="animate-spin" />} Salvar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+
+      <QuickPrestadorForm 
+        open={showNewPrestador} 
+        onClose={() => setShowNewPrestador(false)} 
+        onCreated={(id) => {
+          qc.invalidateQueries({ queryKey: ["prestadores-opts"] });
+          form.setValue("prestador_id", String(id));
+          setShowNewPrestador(false);
+        }}
+      />
+    </Dialog>
+  );
+}
+
+function QuickPrestadorForm({ 
+  open, 
+  onClose, 
+  onCreated 
+}: { 
+  open: boolean; 
+  onClose: () => void; 
+  onCreated: (id: number) => void;
+}) {
+  const form = useForm({
+    defaultValues: {
+      razao_social: "",
+      tipo: "outro",
+      cidade: "",
+      uf: "",
+    }
+  });
+
+  const save = useMutation({
+    mutationFn: async (values: any) => {
+      const { data, error } = await supabase
+        .from("prestadores")
+        .insert({
+          ...values,
+          uf: values.uf.toUpperCase().slice(0, 2),
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return data.id;
+    },
+    onSuccess: (id) => {
+      toast.success("Prestador cadastrado rapidamente!");
+      onCreated(id);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Cadastro Rápido de Prestador</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={form.handleSubmit((v) => save.mutate(v))} className="space-y-4">
+          <div className="space-y-2">
+            <Label>Razão social *</Label>
+            <Input {...form.register("razao_social", { required: true })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Tipo</Label>
+            <Select value={form.watch("tipo")} onValueChange={(v) => form.setValue("tipo", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PRESTADOR_TIPOS.map(t => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="col-span-2 space-y-2">
+              <Label>Cidade</Label>
+              <Input {...form.register("cidade", { required: true })} />
+            </div>
+            <div className="space-y-2">
+              <Label>UF</Label>
+              <Input {...form.register("uf", { required: true, maxLength: 2 })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" variant="gradient" disabled={save.isPending}>
+              {save.isPending && <Loader2 className="animate-spin" />} Cadastrar
             </Button>
           </DialogFooter>
         </form>
