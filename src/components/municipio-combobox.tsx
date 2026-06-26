@@ -414,12 +414,19 @@ export function UfSingleSelect({
   const { data: ufs = [] } = useQuery({
     queryKey: ["ufs-list"],
     queryFn: async () => {
+      // Busca todas as UFs únicas da tabela de municípios
       const { data, error } = await supabase
         .from("municipios")
-        .select("uf")
-        .order("uf");
+        .select("uf");
+      
       if (error) throw error;
-      const uniqueUfs = Array.from(new Set((data ?? []).map((m) => m.uf)));
+      
+      // Filtra UFs únicas e ordena alfabeticamente
+      const uniqueUfs = Array.from(new Set((data ?? [])
+        .map((m) => m.uf)
+        .filter(Boolean)))
+        .sort();
+        
       return uniqueUfs;
     },
     staleTime: Infinity,
