@@ -16,6 +16,12 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +30,24 @@ export type Municipio = {
   nome: string;
   uf: string;
 };
+
+/**
+ * Hook para detectar se é dispositivo móvel
+ */
+function useIsMobile() {
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  return isMobile;
+}
 
 /**
  * Hook para debounce de valores
@@ -79,6 +103,84 @@ async function fetchMunicipiosByIds(ids: number[]): Promise<Municipio[]> {
   return (data ?? []) as Municipio[];
 }
 
+/** Componente interno de busca compartilhado entre Popover e Dialog */
+function MunicipioSearchContent({
+  value,
+  onChange,
+  onClose,
+  search,
+  setSearch,
+  searchResults,
+  isLoading,
+  debouncedSearch,
+  isMulti = false,
+  toggle,
+}: {
+  value: number | number[] | null;
+  onChange?: (codigo: number | null) => void;
+  onClose: () => void;
+  search: string;
+  setSearch: (s: string) => void;
+  searchResults: Municipio[];
+  isLoading: boolean;
+  debouncedSearch: string;
+  isMulti?: boolean;
+  toggle?: (codigo: number) => void;
+}) {
+  const isSelected = (codigo: number) => {
+    if (isMulti && Array.isArray(value)) {
+      return value.includes(codigo);
+    }
+    return value === codigo;
+  };
+
+  return (
+    <Command shouldFilter={false} className="flex h-full flex-col overflow-hidden">
+      <CommandInput 
+        placeholder={isLoading ? "Buscando..." : "Digite pelo menos 2 letras..."} 
+        value={search}
+        onValueChange={setSearch}
+        className="h-12 text-base"
+        autoFocus
+      />
+      <CommandList className="flex-1 overflow-y-auto overscroll-contain touch-pan-y max-h-none">
+        {debouncedSearch.length < 2 ? (
+          <div className="py-12 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+            <MapPin className="h-8 w-8 opacity-20" />
+            <span>Digite pelo menos 2 letras para buscar.</span>
+          </div>
+        ) : searchResults.length === 0 && !isLoading ? (
+          <CommandEmpty className="py-12">Nenhum município encontrado.</CommandEmpty>
+        ) : (
+          <CommandGroup className="p-2">
+            {searchResults.map((m) => (
+              <CommandItem
+                key={m.codigo_ibge}
+                value={`${m.nome} ${m.uf}`}
+                onSelect={() => {
+                  if (isMulti && toggle) {
+                    toggle(m.codigo_ibge);
+                  } else if (onChange) {
+                    onChange(m.codigo_ibge === value ? null : m.codigo_ibge);
+                    onClose();
+                  }
+                }}
+                className="py-3 px-4 mb-1 rounded-lg border border-transparent aria-selected:bg-accent aria-selected:border-accent/20"
+              >
+                <Check className={cn("mr-3 h-5 w-5", isSelected(m.codigo_ibge) ? "opacity-100" : "opacity-0")} />
+                <div className="flex flex-col flex-1">
+                  <span className="font-medium text-base">{m.nome}</span>
+                  <span className="text-xs text-muted-foreground uppercase">{m.uf}</span>
+                </div>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+      </CommandList>
+    </Command>
+  );
+}
+
 /** Seleção única */
 export function MunicipioSingleCombobox({
   value,
@@ -92,15 +194,14 @@ export function MunicipioSingleCombobox({
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const debouncedSearch = useDebounce(search, 300);
+  const isMobile = useIsMobile();
 
-  // Busca os resultados da pesquisa
   const { data: searchResults = [], isLoading } = useQuery({
     queryKey: ["municipios-search", debouncedSearch],
     queryFn: () => searchMunicipios(debouncedSearch),
     enabled: debouncedSearch.length >= 2,
   });
 
-  // Busca o item selecionado para exibir o label correto
   const { data: selectedData = [] } = useQuery({
     queryKey: ["municipios-selected", value],
     queryFn: () => fetchMunicipiosByIds(value ? [value] : []),
@@ -109,58 +210,68 @@ export function MunicipioSingleCombobox({
 
   const selected = selectedData[0];
 
+  const trigger = (
+    <Button
+      variant="outline"
+      role="combobox"
+      className="w-full justify-between font-normal h-10 px-3"
+      onClick={() => setOpen(true)}
+    >
+      {selected ? (
+        <span className="truncate">{selected.nome} / {selected.uf}</span>
+      ) : (
+        <span className="text-muted-foreground">{placeholder}</span>
+      )}
+      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+    </Button>
+  );
+
+  const contentProps = {
+    value,
+    onChange,
+    onClose: () => {
+      setOpen(false);
+      setSearch("");
+    },
+    search,
+    setSearch,
+    searchResults,
+    isLoading,
+    debouncedSearch,
+  };
+
+  if (isMobile) {
+    return (
+      <>
+        {trigger}
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent className="p-0 sm:max-w-lg h-[90vh] sm:h-auto flex flex-col overflow-hidden top-[5vh] translate-y-0">
+            <DialogHeader className="p-4 border-b">
+              <DialogTitle>Buscar Município</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-hidden">
+              <MunicipioSearchContent {...contentProps} />
+            </div>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          className="w-full justify-between font-normal"
-        >
-          {selected ? (
-            <span className="truncate">{selected.nome} / {selected.uf}</span>
-          ) : (
-            <span className="text-muted-foreground">{placeholder}</span>
-          )}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
+        {trigger}
       </PopoverTrigger>
-      <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command shouldFilter={false}>
-          <CommandInput 
-            placeholder={isLoading ? "Buscando..." : "Digite pelo menos 2 letras..."} 
-            value={search}
-            onValueChange={setSearch}
-          />
-          <CommandList>
-            {debouncedSearch.length < 2 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground">
-                Digite pelo menos 2 letras para buscar.
-              </div>
-            ) : searchResults.length === 0 && !isLoading ? (
-              <CommandEmpty>Nenhum município encontrado.</CommandEmpty>
-            ) : (
-              <CommandGroup>
-                {searchResults.map((m) => (
-                  <CommandItem
-                    key={m.codigo_ibge}
-                    value={`${m.nome} ${m.uf}`}
-                    onSelect={() => {
-                      onChange(m.codigo_ibge === value ? null : m.codigo_ibge);
-                      setOpen(false);
-                      setSearch("");
-                    }}
-                  >
-                    <Check className={cn("mr-2 h-4 w-4", value === m.codigo_ibge ? "opacity-100" : "opacity-0")} />
-                    <MapPin className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="flex-1">{m.nome}</span>
-                    <span className="text-xs text-muted-foreground">{m.uf}</span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-          </CommandList>
-        </Command>
+      <PopoverContent 
+        className="w-[--radix-popover-trigger-width] p-0" 
+        align="start"
+        side="bottom"
+        sideOffset={4}
+      >
+        <div className="h-[400px]">
+          <MunicipioSearchContent {...contentProps} />
+        </div>
       </PopoverContent>
     </Popover>
   );
@@ -179,15 +290,14 @@ export function MunicipioMultiCombobox({
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const debouncedSearch = useDebounce(search, 300);
+  const isMobile = useIsMobile();
 
-  // Busca os resultados da pesquisa
   const { data: searchResults = [], isLoading } = useQuery({
     queryKey: ["municipios-search", debouncedSearch],
     queryFn: () => searchMunicipios(debouncedSearch),
     enabled: debouncedSearch.length >= 2,
   });
 
-  // Busca os itens já selecionados para exibir nos chips
   const { data: selectedMunicipios = [] } = useQuery({
     queryKey: ["municipios-selected-multi", value],
     queryFn: () => fetchMunicipiosByIds(value),
@@ -203,51 +313,65 @@ export function MunicipioMultiCombobox({
     }
   };
 
+  const trigger = (
+    <Button 
+      variant="outline" 
+      className="w-full justify-between font-normal h-10 px-3"
+      onClick={() => setOpen(true)}
+    >
+      <span className="text-muted-foreground truncate">{placeholder}</span>
+      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+    </Button>
+  );
+
+  const contentProps = {
+    value,
+    onClose: () => {
+      setOpen(false);
+      setSearch("");
+    },
+    search,
+    setSearch,
+    searchResults,
+    isLoading,
+    debouncedSearch,
+    isMulti: true,
+    toggle,
+  };
+
   return (
     <div className="space-y-2">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button variant="outline" className="w-full justify-between font-normal">
-            <span className="text-muted-foreground">{placeholder}</span>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[--radix-popover-trigger-width] p-0" align="start">
-          <Command shouldFilter={false}>
-            <CommandInput 
-              placeholder={isLoading ? "Buscando..." : "Buscar município ou UF..."} 
-              value={search}
-              onValueChange={setSearch}
-            />
-            <CommandList>
-              {debouncedSearch.length < 2 ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">
-                  Digite pelo menos 2 letras para buscar.
-                </div>
-              ) : searchResults.length === 0 && !isLoading ? (
-                <CommandEmpty>Nenhum município encontrado.</CommandEmpty>
-              ) : (
-                <CommandGroup>
-                  {searchResults.map((m) => {
-                    const checked = value.includes(m.codigo_ibge);
-                    return (
-                      <CommandItem
-                        key={m.codigo_ibge}
-                        value={`${m.nome} ${m.uf}`}
-                        onSelect={() => toggle(m.codigo_ibge)}
-                      >
-                        <Check className={cn("mr-2 h-4 w-4", checked ? "opacity-100" : "opacity-0")} />
-                        <span className="flex-1">{m.nome}</span>
-                        <span className="text-xs text-muted-foreground">{m.uf}</span>
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              )}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+      {isMobile ? (
+        <>
+          {trigger}
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent className="p-0 sm:max-w-lg h-[90vh] sm:h-auto flex flex-col overflow-hidden top-[5vh] translate-y-0">
+              <DialogHeader className="p-4 border-b">
+                <DialogTitle>Adicionar Municípios</DialogTitle>
+              </DialogHeader>
+              <div className="flex-1 overflow-hidden">
+                <MunicipioSearchContent {...contentProps} />
+              </div>
+            </DialogContent>
+          </Dialog>
+        </>
+      ) : (
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            {trigger}
+          </PopoverTrigger>
+          <PopoverContent 
+            className="w-[--radix-popover-trigger-width] p-0" 
+            align="start"
+            side="bottom"
+            sideOffset={4}
+          >
+            <div className="h-[400px]">
+              <MunicipioSearchContent {...contentProps} />
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
 
       {selectedMunicipios.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
