@@ -2,7 +2,7 @@ import * as React from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
-import { Plus, Pencil, Trash2, Search, Loader2, Users, Sparkles } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Loader2, Users, Sparkles, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -49,6 +49,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { EspecialidadeMultiSelect, useEspecialidades } from "@/components/especialidade-multiselect";
 import { MunicipioMultiCombobox } from "@/components/municipio-combobox";
 
@@ -416,21 +430,47 @@ function PrestadoresPage() {
             </div>
             <div className="space-y-2">
               <Label>Tipo</Label>
-              <Select
-                value={form.watch("tipo")}
-                onValueChange={(v) => form.setValue("tipo", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRESTADOR_TIPOS.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between font-normal"
+                  >
+                    {form.watch("tipo")
+                      ? PRESTADOR_TIPOS.find((t) => t.value === form.watch("tipo"))?.label
+                      : "Selecione o tipo..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                  <Command>
+                    <CommandInput placeholder="Buscar tipo..." />
+                    <CommandList>
+                      <CommandEmpty>Nenhum tipo encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {PRESTADOR_TIPOS.map((t) => (
+                          <CommandItem
+                            key={t.value}
+                            value={t.label}
+                            onSelect={() => {
+                              form.setValue("tipo", t.value);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                form.watch("tipo") === t.value ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {t.label}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label>Especialidades atendidas</Label>
