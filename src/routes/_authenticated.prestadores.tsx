@@ -6,7 +6,16 @@ import { Plus, Pencil, Trash2, Search, Loader2, Users, Sparkles } from "lucide-r
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { PRESTADOR_TIPOS, labelOf } from "@/lib/domain";
+import { PRESTADOR_TIPOS as DOMAIN_PRESTADOR_TIPOS, labelOf } from "@/lib/domain";
+
+const PRESTADOR_TIPOS = [
+  ...DOMAIN_PRESTADOR_TIPOS.filter(t => t.value !== 'hospital'),
+  { value: "hospital", label: "Hospital" }
+].sort((a, b) => {
+  if (a.value === 'outro') return 1;
+  if (b.value === 'outro') return -1;
+  return 0;
+});
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
