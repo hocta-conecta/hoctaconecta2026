@@ -70,6 +70,8 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { PRESTADOR_TIPOS } from "@/lib/domain";
+import { EspecialidadeMultiSelect } from "@/components/especialidade-multiselect";
+import { MunicipioMultiCombobox } from "@/components/municipio-combobox";
 
 export const Route = createFileRoute("/_authenticated/prospeccao")({
   component: ProspeccaoPage,
@@ -625,30 +627,58 @@ function QuickPrestadorForm({
   onClose: () => void; 
   onCreated: (id: number) => void;
 }) {
+  const [especialidadesSel, setEspecialidadesSel] = React.useState<number[]>([]);
+  const [municipiosSel, setMunicipiosSel] = React.useState<number[]>([]);
+  
   const form = useForm({
     defaultValues: {
       razao_social: "",
+      nome_fantasia: "",
+      cnpj: "",
       tipo: "outro",
       cidade: "",
       uf: "",
+      telefone: "",
+      email: "",
+      observacoes: "",
     }
   });
 
   const save = useMutation({
     mutationFn: async (values: any) => {
+      // 1. Insere o prestador
       const { data, error } = await supabase
         .from("prestadores")
         .insert({
           ...values,
-          uf: values.uf.toUpperCase().slice(0, 2),
+          uf: (values.uf || "").toUpperCase().slice(0, 2),
         })
         .select("id")
         .single();
+      
       if (error) throw error;
-      return data.id;
+      const prestadorId = data.id;
+
+      // 2. Insere especialidades
+      if (especialidadesSel.length > 0) {
+        const { error: espErr } = await supabase.from("prestador_especialidades").insert(
+          especialidadesSel.map(id => ({ prestador_id: prestadorId, especialidade_id: id }))
+        );
+        if (espErr) console.error("Erro ao salvar especialidades:", espErr);
+      }
+
+      // 3. Insere municípios
+      if (municipiosSel.length > 0) {
+        const { error: munErr } = await supabase.from("prestador_municipios").insert(
+          municipiosSel.map(code => ({ prestador_id: prestadorId, municipio_codigo: code }))
+        );
+        if (munErr) console.error("Erro ao salvar municípios:", munErr);
+      }
+
+      return prestadorId;
     },
     onSuccess: (id) => {
-      toast.success("Prestador cadastrado rapidamente!");
+      toast.success("Prestador cadastrado com sucesso!");
       onCreated(id);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -656,36 +686,112 @@ function QuickPrestadorForm({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Cadastro Rápido de Prestador</DialogTitle>
+          <DialogTitle>Novo Prestador</DialogTitle>
         </DialogHeader>
         <form onSubmit={form.handleSubmit((v) => save.mutate(v))} className="space-y-4">
           <div className="space-y-2">
             <Label>Razão social *</Label>
             <Input {...form.register("razao_social", { required: true })} />
           </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Nome fantasia</Label>
+              <Input {...form.register("nome_fantasia")} />
+            </div>
+            <div className="space-y-2">
+              <Label>CNPJ</Label>
+              <Input {...form.register("cnpj")} />
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label>Tipo</Label>
-            <Select value={form.watch("tipo")} onValueChange={(v) => form.setValue("tipo", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {PRESTADOR_TIPOS.map(t => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-full justify-between font-normal"
+                >
+                  {form.watch("tipo")
+                    ? PRESTADOR_TIPOS.find((t) => t.value === form.watch("tipo"))?.label
+                    : "Selecione o tipo..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                <Command>
+                  <CommandInput placeholder="Buscar tipo..." />
+                  <CommandList>
+                    <CommandEmpty>Nenhum tipo encontrado.</CommandEmpty>
+                    <CommandGroup>
+                      {PRESTADOR_TIPOS.map((t) => (
+                        <CommandItem
+                          key={t.value}
+                          value={t.label}
+                          onSelect={() => {
+                            form.setValue("tipo", t.value);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              form.watch("tipo") === t.value ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {t.label}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div className="col-span-2 space-y-2">
-              <Label>Cidade</Label>
+
+          <div className="space-y-2">
+            <Label>Especialidades atendidas</Label>
+            <EspecialidadeMultiSelect
+              value={especialidadesSel}
+              onChange={setEspecialidadesSel}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="space-y-2 col-span-2">
+              <Label>Cidade-sede *</Label>
               <Input {...form.register("cidade", { required: true })} />
             </div>
             <div className="space-y-2">
-              <Label>UF</Label>
-              <Input {...form.register("uf", { required: true, maxLength: 2 })} />
+              <Label>UF *</Label>
+              <Input maxLength={2} {...form.register("uf", { required: true })} />
             </div>
           </div>
+
+          <div className="space-y-2">
+            <Label>Municípios cobertos</Label>
+            <MunicipioMultiCombobox value={municipiosSel} onChange={setMunicipiosSel} />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Telefone</Label>
+              <Input {...form.register("telefone")} />
+            </div>
+            <div className="space-y-2">
+              <Label>E-mail</Label>
+              <Input type="email" {...form.register("email")} />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Observações</Label>
+            <Textarea {...form.register("observacoes")} />
+          </div>
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="submit" variant="gradient" disabled={save.isPending}>
