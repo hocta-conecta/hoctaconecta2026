@@ -254,7 +254,7 @@ async function loadDashboardStats(): Promise<DashboardStats> {
   })).filter((_, i) => i <= now.getMonth());
 
   // ===== Métricas baseadas em N:N prestador_especialidades =====
-  const peRows = (prestadorEspRes.data ?? []) as Array<{
+  const peRows = (prestadorEspRes.data ?? []) as unknown as Array<{
     prestador_id: number;
     especialidade_id: number | null;
     especialidade: string;
@@ -277,7 +277,7 @@ async function loadDashboardStats(): Promise<DashboardStats> {
     .slice(0, 6);
 
   // ===== Realizado vs Meta =====
-  const metaRows = (metasRes.data ?? []) as Array<{
+  const metaRows = (metasRes.data ?? []) as unknown as Array<{
     especialidade_id: number | null;
     quantidade_meta: number;
     especialidades: { nome: string } | null;
