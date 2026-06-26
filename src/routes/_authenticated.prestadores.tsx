@@ -420,16 +420,16 @@ function PrestadoresPage() {
           >
             <div className="space-y-2">
               <Label>Razão social *</Label>
-              <Input {...form.register("razao_social", { required: true })} />
+              <Input placeholder="Ex: Hospital Central de Exemplo Ltda" {...form.register("razao_social", { required: true })} />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Nome fantasia</Label>
-                <Input {...form.register("nome_fantasia")} />
+                <Input placeholder="Ex: Hospital Central" {...form.register("nome_fantasia")} />
               </div>
               <div className="space-y-2">
                 <Label>CNPJ</Label>
-                <Input {...form.register("cnpj")} />
+                <Input placeholder="00.000.000/0000-00" {...form.register("cnpj")} />
               </div>
             </div>
             <div className="space-y-2">
@@ -513,16 +513,16 @@ function PrestadoresPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Telefone</Label>
-                <Input {...form.register("telefone")} />
+                <Input placeholder="(00) 00000-0000" {...form.register("telefone")} />
               </div>
               <div className="space-y-2">
                 <Label>E-mail</Label>
-                <Input type="email" {...form.register("email")} />
+                <Input type="email" placeholder="contato@prestador.com.br" {...form.register("email")} />
               </div>
             </div>
             <div className="space-y-2">
               <Label>Observações</Label>
-              <Textarea {...form.register("observacoes")} />
+              <Textarea placeholder="Informações adicionais, pontos de referência, etc." {...form.register("observacoes")} />
             </div>
             <DialogFooter className="gap-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>

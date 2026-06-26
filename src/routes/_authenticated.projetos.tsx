@@ -289,7 +289,7 @@ function ProjetosPage() {
           >
             <div className="space-y-2">
               <Label>Nome *</Label>
-              <Input {...form.register("nome", { required: true })} />
+              <Input placeholder="Ex: Credenciamento Nacional 2024" {...form.register("nome", { required: true })} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
@@ -331,7 +331,7 @@ function ProjetosPage() {
             </div>
             <div className="space-y-2">
               <Label>Descrição</Label>
-              <Textarea {...form.register("descricao")} />
+              <Textarea placeholder="Descreva os objetivos e escopo do projeto..." {...form.register("descricao")} />
             </div>
             <div className="space-y-2">
               <Label>Municípios do projeto</Label>
@@ -340,11 +340,11 @@ function ProjetosPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Data de início</Label>
-                <Input type="date" {...form.register("data_inicio")} />
+                <Input type="date" placeholder="Data de início" {...form.register("data_inicio")} />
               </div>
               <div className="space-y-2">
                 <Label>Data prevista</Label>
-                <Input type="date" {...form.register("data_prevista")} />
+                <Input type="date" placeholder="Data prevista" {...form.register("data_prevista")} />
               </div>
             </div>
             <DialogFooter className="gap-2">

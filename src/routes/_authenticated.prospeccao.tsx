@@ -587,16 +587,16 @@ function ProspeccaoForm({
             </div>
             <div className="space-y-2">
               <Label>Prioridade</Label>
-              <Input type="number" {...form.register("prioridade")} />
+              <Input type="number" placeholder="Ex: 1 (Alta), 5 (Baixa)" {...form.register("prioridade")} />
             </div>
           </div>
           <div className="space-y-2">
             <Label>Data de início</Label>
-            <Input type="date" {...form.register("data_inicio")} />
+            <Input type="date" placeholder="Data de início" {...form.register("data_inicio")} />
           </div>
           <div className="space-y-2">
             <Label>Observações</Label>
-            <Textarea {...form.register("observacoes")} />
+            <Textarea placeholder="Informações adicionais, observações ou detalhes importantes..." {...form.register("observacoes")} />
           </div>
           <DialogFooter className="gap-2">
             <Button type="button" variant="outline" onClick={onClose}>
@@ -793,17 +793,17 @@ function QuickPrestadorForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Telefone</Label>
-              <Input {...form.register("telefone")} />
+              <Input placeholder="(00) 00000-0000" {...form.register("telefone")} />
             </div>
             <div className="space-y-2">
               <Label>E-mail</Label>
-              <Input type="email" {...form.register("email")} />
+              <Input type="email" placeholder="contato@exemplo.com" {...form.register("email")} />
             </div>
           </div>
 
           <div className="space-y-2">
             <Label>Observações</Label>
-            <Textarea {...form.register("observacoes")} />
+            <Textarea placeholder="Informações adicionais, observações ou detalhes importantes..." {...form.register("observacoes")} />
           </div>
 
           <DialogFooter>

@@ -557,7 +557,7 @@ function ClienteDialog({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="nome">Nome da Operadora *</Label>
-          <Input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} required />
+          <Input id="nome" placeholder="Ex: Unimed Nacional, Bradesco Saúde..." value={nome} onChange={(e) => setNome(e.target.value)} required />
         </div>
         <div className="space-y-2">
           <Label>Tipo *</Label>
@@ -578,6 +578,7 @@ function ClienteDialog({
           <Label htmlFor="contato_nome">Nome do Contato</Label>
           <Input
             id="contato_nome"
+            placeholder="Nome do gestor ou ponto focal"
             value={contatoNome}
             onChange={(e) => setContatoNome(e.target.value)}
           />
@@ -588,6 +589,7 @@ function ClienteDialog({
             <Input
               id="contato_email"
               type="email"
+              placeholder="contato@operadora.com.br"
               value={contatoEmail}
               onChange={(e) => setContatoEmail(e.target.value)}
             />
@@ -596,6 +598,7 @@ function ClienteDialog({
             <Label htmlFor="contato_tel">Telefone</Label>
             <Input
               id="contato_tel"
+              placeholder="(00) 00000-0000"
               value={contatoTel}
               onChange={(e) => setContatoTel(e.target.value)}
             />
