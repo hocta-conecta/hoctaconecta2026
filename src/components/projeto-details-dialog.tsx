@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { MunicipioSingleCombobox } from "@/components/municipio-combobox";
 import { useEspecialidades } from "@/components/especialidade-multiselect";
 
@@ -103,14 +104,40 @@ function MetasPanel({ projetoId }: { projetoId: number }) {
 
   const { data: metas = [], isLoading } = useQuery({
     queryKey: ["metas", projetoId],
-    queryFn: async (): Promise<Meta[]> => {
-      const { data, error } = await supabase
+    queryFn: async (): Promise<(Meta & { atual: number })[]> => {
+      const { data: metasData, error: metasError } = await supabase
         .from("metas_projeto")
         .select("*")
         .eq("projeto_id", projetoId)
         .order("id");
-      if (error) throw error;
-      return (data ?? []) as Meta[];
+      
+      if (metasError) throw metasError;
+
+      // Busca prestadores credenciados para este projeto para calcular o real
+      const { data: credenciados, error: credError } = await supabase
+        .from("prospeccoes")
+        .select("prestador_id, prestadores(prestador_especialidades(especialidade_id), prestador_municipios(municipio_codigo))")
+        .eq("projeto_id", projetoId)
+        .eq("etapa", "credenciado");
+
+      if (credError) throw credError;
+
+      return (metasData ?? []).map(meta => {
+        const atingido = (credenciados ?? []).filter(c => {
+          const p = c.prestadores as any;
+          if (!p) return false;
+          
+          const matchEsp = !meta.especialidade_id || 
+            p.prestador_especialidades?.some((e: any) => e.especialidade_id === meta.especialidade_id);
+          
+          const matchMun = !meta.municipio_codigo || 
+            p.prestador_municipios?.some((m: any) => m.municipio_codigo === meta.municipio_codigo);
+          
+          return matchEsp && matchMun;
+        }).length;
+
+        return { ...meta, atual: atingido };
+      }) as (Meta & { atual: number })[];
     },
   });
 
@@ -240,6 +267,7 @@ function MetasPanel({ projetoId }: { projetoId: number }) {
             <TableRow>
               <TableHead>Especialidade</TableHead>
               <TableHead>Município</TableHead>
+              <TableHead>Progresso</TableHead>
               <TableHead className="text-right">Meta</TableHead>
               <TableHead className="w-12"></TableHead>
             </TableRow>
@@ -253,6 +281,15 @@ function MetasPanel({ projetoId }: { projetoId: number }) {
                   <TableCell>{e?.nome ?? <Badge variant="outline">Geral</Badge>}</TableCell>
                   <TableCell>
                     {mun ? `${mun.nome}/${mun.uf}` : <Badge variant="outline">Projeto todo</Badge>}
+                  </TableCell>
+                  <TableCell className="min-w-[120px]">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] text-muted-foreground">
+                        <span>{m.atual} de {m.quantidade_meta}</span>
+                        <span>{Math.min(100, Math.round((m.atual / (m.quantidade_meta || 1)) * 100))}%</span>
+                      </div>
+                      <Progress value={(m.atual / (m.quantidade_meta || 1)) * 100} className="h-1.5" />
+                    </div>
                   </TableCell>
                   <TableCell className="text-right font-semibold">{m.quantidade_meta}</TableCell>
                   <TableCell>

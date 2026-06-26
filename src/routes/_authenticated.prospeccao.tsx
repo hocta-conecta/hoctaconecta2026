@@ -114,16 +114,19 @@ function ProspeccaoPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("prestadores")
-        .select("id, razao_social")
+        .select("id, razao_social, cidade, uf")
         .order("razao_social");
-      return (data ?? []) as { id: number; razao_social: string }[];
+      return (data ?? []) as { id: number; razao_social: string; cidade: string; uf: string }[];
     },
   });
   const { data: projetos = [] } = useQuery({
     queryKey: ["projetos-opts"],
     queryFn: async () => {
-      const { data } = await supabase.from("projetos").select("id, nome").order("nome");
-      return (data ?? []) as { id: number; nome: string }[];
+      const { data } = await supabase
+        .from("projetos")
+        .select("id, nome, projeto_municipios(municipio_codigo)")
+        .order("nome");
+      return (data ?? []) as any[];
     },
   });
 
@@ -473,11 +476,18 @@ function ProspeccaoForm({
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
-                {prestadores.map((p) => (
-                  <SelectItem key={p.id} value={String(p.id)}>
-                    {p.razao_social}
-                  </SelectItem>
-                ))}
+                {(() => {
+                  const selProjId = form.watch("projeto_id");
+                  const filteredPrestadores = selProjId 
+                    ? prestadores // Aqui poderíamos filtrar por municípios do projeto no futuro se prestador_municipios estivesse no fetch
+                    : prestadores;
+                  
+                  return filteredPrestadores.map((p) => (
+                    <SelectItem key={p.id} value={String(p.id)}>
+                      {p.razao_social} ({p.cidade}/{p.uf})
+                    </SelectItem>
+                  ));
+                })()}
               </SelectContent>
             </Select>
           </div>
@@ -596,8 +606,9 @@ function DetailsDialog({
   const convert = useMutation({
     mutationFn: async () => {
       if (!prospeccao?.prestador_id) throw new Error("Sem prestador vinculado");
-      // A prospecção já tem prestador associado — só marcamos como convertido e movemos para "credenciado"
-      const { error } = await supabase
+      
+      // 1. Atualiza a prospecção
+      const { error: prospError } = await supabase
         .from("prospeccoes")
         .update({
           etapa: "credenciado",
@@ -606,11 +617,32 @@ function DetailsDialog({
           atualizado_em: new Date().toISOString(),
         })
         .eq("id", prospeccaoId);
-      if (error) throw error;
+      
+      if (prospError) throw prospError;
+
+      // 2. Vínculo automático: Se houver um projeto, garante que o prestador está vinculado aos municípios do projeto
+      if (prospeccao.projeto_id) {
+        // Busca municípios do projeto
+        const { data: projMuns } = await supabase
+          .from("projeto_municipios")
+          .select("municipio_codigo")
+          .eq("projeto_id", prospeccao.projeto_id);
+
+        if (projMuns && projMuns.length > 0) {
+          const rows = projMuns.map(m => ({
+            prestador_id: prospeccao.prestador_id,
+            municipio_codigo: m.municipio_codigo
+          }));
+          
+          // Insere ignorando duplicatas (upsert manual via on conflict não disponível em todas as configs, então usamos insert simples)
+          await supabase.from("prestador_municipios").insert(rows);
+        }
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["prospeccoes"] });
-      toast.success("Prospecção convertida em credenciamento");
+      qc.invalidateQueries({ queryKey: ["prestadores"] });
+      toast.success("Prospecção convertida e prestador vinculado ao projeto!");
       onClose();
     },
     onError: (e: Error) => toast.error(e.message),
