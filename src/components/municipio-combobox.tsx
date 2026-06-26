@@ -25,23 +25,58 @@ export type Municipio = {
   uf: string;
 };
 
-async function fetchMunicipios(): Promise<Municipio[]> {
+/**
+ * Hook para debounce de valores
+ */
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = React.useState<T>(value);
+
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+/**
+ * Busca municípios no servidor com filtro ilike
+ */
+async function searchMunicipios(searchTerm: string): Promise<Municipio[]> {
+  if (!searchTerm || searchTerm.length < 2) {
+    return [];
+  }
+
   const { data, error } = await supabase
     .from("municipios")
     .select("codigo_ibge, nome, uf")
+    .or(`nome.ilike.%${searchTerm}%,uf.ilike.%${searchTerm}%`)
     .order("uf")
-    .order("nome");
+    .order("nome")
+    .limit(100);
+
   if (error) throw error;
   return (data ?? []) as Municipio[];
 }
 
-function useMunicipios() {
-  return useQuery({
-    queryKey: ["municipios"],
-    queryFn: fetchMunicipios,
-    staleTime: Infinity,
-    gcTime: Infinity,
-  });
+/**
+ * Busca municípios específicos pelos códigos IBGE (para preservar chips)
+ */
+async function fetchMunicipiosByIds(ids: number[]): Promise<Municipio[]> {
+  if (ids.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("municipios")
+    .select("codigo_ibge, nome, uf")
+    .in("codigo_ibge", ids);
+
+  if (error) throw error;
+  return (data ?? []) as Municipio[];
 }
 
 /** Seleção única */
@@ -55,8 +90,24 @@ export function MunicipioSingleCombobox({
   placeholder?: string;
 }) {
   const [open, setOpen] = React.useState(false);
-  const { data = [], isLoading } = useMunicipios();
-  const selected = data.find((m) => m.codigo_ibge === value);
+  const [search, setSearch] = React.useState("");
+  const debouncedSearch = useDebounce(search, 300);
+
+  // Busca os resultados da pesquisa
+  const { data: searchResults = [], isLoading } = useQuery({
+    queryKey: ["municipios-search", debouncedSearch],
+    queryFn: () => searchMunicipios(debouncedSearch),
+    enabled: debouncedSearch.length >= 2,
+  });
+
+  // Busca o item selecionado para exibir o label correto
+  const { data: selectedData = [] } = useQuery({
+    queryKey: ["municipios-selected", value],
+    queryFn: () => fetchMunicipiosByIds(value ? [value] : []),
+    enabled: !!value,
+  });
+
+  const selected = selectedData[0];
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -75,24 +126,29 @@ export function MunicipioSingleCombobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-        <Command
-          filter={(itemValue, search) =>
-            itemValue.toLowerCase().includes(search.toLowerCase()) ? 1 : 0
-          }
-        >
-          <CommandInput placeholder={isLoading ? "Carregando..." : "Buscar município ou UF..."} />
+        <Command shouldFilter={false}>
+          <CommandInput 
+            placeholder={isLoading ? "Buscando..." : "Digite pelo menos 2 letras..."} 
+            value={search}
+            onValueChange={setSearch}
+          />
           <CommandList>
-            <CommandEmpty>Nenhum município encontrado.</CommandEmpty>
-            <CommandGroup>
-              {data.map((m) => {
-                const v = `${m.nome} ${m.uf}`;
-                return (
+            {debouncedSearch.length < 2 ? (
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                Digite pelo menos 2 letras para buscar.
+              </div>
+            ) : searchResults.length === 0 && !isLoading ? (
+              <CommandEmpty>Nenhum município encontrado.</CommandEmpty>
+            ) : (
+              <CommandGroup>
+                {searchResults.map((m) => (
                   <CommandItem
                     key={m.codigo_ibge}
-                    value={v}
+                    value={`${m.nome} ${m.uf}`}
                     onSelect={() => {
                       onChange(m.codigo_ibge === value ? null : m.codigo_ibge);
                       setOpen(false);
+                      setSearch("");
                     }}
                   >
                     <Check className={cn("mr-2 h-4 w-4", value === m.codigo_ibge ? "opacity-100" : "opacity-0")} />
@@ -100,9 +156,9 @@ export function MunicipioSingleCombobox({
                     <span className="flex-1">{m.nome}</span>
                     <span className="text-xs text-muted-foreground">{m.uf}</span>
                   </CommandItem>
-                );
-              })}
-            </CommandGroup>
+                ))}
+              </CommandGroup>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>
@@ -121,15 +177,30 @@ export function MunicipioMultiCombobox({
   placeholder?: string;
 }) {
   const [open, setOpen] = React.useState(false);
-  const { data = [], isLoading } = useMunicipios();
-  const map = React.useMemo(
-    () => new Map(data.map((m) => [m.codigo_ibge, m])),
-    [data],
-  );
+  const [search, setSearch] = React.useState("");
+  const debouncedSearch = useDebounce(search, 300);
+
+  // Busca os resultados da pesquisa
+  const { data: searchResults = [], isLoading } = useQuery({
+    queryKey: ["municipios-search", debouncedSearch],
+    queryFn: () => searchMunicipios(debouncedSearch),
+    enabled: debouncedSearch.length >= 2,
+  });
+
+  // Busca os itens já selecionados para exibir nos chips
+  const { data: selectedMunicipios = [] } = useQuery({
+    queryKey: ["municipios-selected-multi", value],
+    queryFn: () => fetchMunicipiosByIds(value),
+    enabled: value.length > 0,
+    staleTime: Infinity,
+  });
 
   const toggle = (codigo: number) => {
-    if (value.includes(codigo)) onChange(value.filter((c) => c !== codigo));
-    else onChange([...value, codigo]);
+    if (value.includes(codigo)) {
+      onChange(value.filter((c) => c !== codigo));
+    } else {
+      onChange([...value, codigo]);
+    }
   };
 
   return (
@@ -142,53 +213,57 @@ export function MunicipioMultiCombobox({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-          <Command
-            filter={(itemValue, search) =>
-              itemValue.toLowerCase().includes(search.toLowerCase()) ? 1 : 0
-            }
-          >
-            <CommandInput placeholder={isLoading ? "Carregando..." : "Buscar município ou UF..."} />
+          <Command shouldFilter={false}>
+            <CommandInput 
+              placeholder={isLoading ? "Buscando..." : "Buscar município ou UF..."} 
+              value={search}
+              onValueChange={setSearch}
+            />
             <CommandList>
-              <CommandEmpty>Nenhum município encontrado.</CommandEmpty>
-              <CommandGroup>
-                {data.map((m) => {
-                  const checked = value.includes(m.codigo_ibge);
-                  return (
-                    <CommandItem
-                      key={m.codigo_ibge}
-                      value={`${m.nome} ${m.uf}`}
-                      onSelect={() => toggle(m.codigo_ibge)}
-                    >
-                      <Check className={cn("mr-2 h-4 w-4", checked ? "opacity-100" : "opacity-0")} />
-                      <span className="flex-1">{m.nome}</span>
-                      <span className="text-xs text-muted-foreground">{m.uf}</span>
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
+              {debouncedSearch.length < 2 ? (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  Digite pelo menos 2 letras para buscar.
+                </div>
+              ) : searchResults.length === 0 && !isLoading ? (
+                <CommandEmpty>Nenhum município encontrado.</CommandEmpty>
+              ) : (
+                <CommandGroup>
+                  {searchResults.map((m) => {
+                    const checked = value.includes(m.codigo_ibge);
+                    return (
+                      <CommandItem
+                        key={m.codigo_ibge}
+                        value={`${m.nome} ${m.uf}`}
+                        onSelect={() => toggle(m.codigo_ibge)}
+                      >
+                        <Check className={cn("mr-2 h-4 w-4", checked ? "opacity-100" : "opacity-0")} />
+                        <span className="flex-1">{m.nome}</span>
+                        <span className="text-xs text-muted-foreground">{m.uf}</span>
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              )}
             </CommandList>
           </Command>
         </PopoverContent>
       </Popover>
 
-      {value.length > 0 && (
+      {selectedMunicipios.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {value.map((c) => {
-            const m = map.get(c);
-            return (
-              <Badge key={c} variant="secondary" className="gap-1 pl-2 pr-1 py-1">
-                {m ? `${m.nome}/${m.uf}` : `#${c}`}
-                <button
-                  type="button"
-                  onClick={() => toggle(c)}
-                  className="ml-0.5 rounded-sm hover:bg-background/50 p-0.5"
-                  aria-label="remover"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            );
-          })}
+          {selectedMunicipios.map((m) => (
+            <Badge key={m.codigo_ibge} variant="secondary" className="gap-1 pl-2 pr-1 py-1">
+              {m.nome}/{m.uf}
+              <button
+                type="button"
+                onClick={() => toggle(m.codigo_ibge)}
+                className="ml-0.5 rounded-sm hover:bg-background/50 p-0.5"
+                aria-label="remover"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
         </div>
       )}
     </div>
