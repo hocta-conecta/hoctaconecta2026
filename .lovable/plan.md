@@ -1,89 +1,76 @@
-## Visão geral
+# Plano de implementação — 6 frentes em PR único
 
-Substituir todo o frontend Streamlit por uma SPA TanStack Start (React 19 + Tailwind v4 + shadcn), mantendo as 6 telas atuais. Não usar Lovable Cloud — o app vai falar direto com seu Supabase externo via cliente JS (`@supabase/supabase-js`), respeitando as policies de RLS já existentes.
+Escopo grande. Vou entregar tudo numa sequência que minimiza retrabalho: primeiro o banco (schema novo + seed de municípios), depois as telas que consomem esse banco.
 
-A identidade visual será modernizada mantendo a paleta azul atual (#1E6B8A como primário, fundo claro, tipografia Inter), com layouts mais limpos, cards com sombras suaves, sidebar moderna e melhor hierarquia.
+## Fase A — Schema Supabase (migration única)
 
-## Pré-requisitos que preciso de você
+**Novas tabelas**
+- `municipios` — `codigo_ibge` (PK), `nome`, `uf`. Seed completo via migration usando dump compacto do IBGE (~5.570 linhas, ~200 KB SQL).
+- `especialidades` — `id`, `nome` (unique), `ativo`.
+- `prestador_especialidades` — N:N `prestador_id` + `especialidade_id` (PK composta).
+- `projeto_municipios` — substitui o campo texto livre `projetos.municipios`. FK pra `municipios.codigo_ibge`.
+- `metas_projeto` — `projeto_id`, `especialidade_id` (nullable = geral), `municipio_codigo` (nullable = projeto inteiro), `quantidade_meta`.
+- `benchmarks` — `id`, `origem` (`mercado` | `projeto_anterior`), `especialidade_id`, `municipio_codigo`, `quantidade`, `referencia_texto`, `projeto_origem_id` (nullable).
+- `prospeccao_interacoes` — `id`, `prospeccao_id`, `tipo` (`telefone`|`email`|`whatsapp`|`visita`|`outro`), `data`, `observacao`, `autor_id`.
+- `prestador_municipios` — N:N prestador↔município (cobertura geográfica).
 
-1. **URL do projeto Supabase** (ex: `https://xxxxx.supabase.co`)
-2. **Chave `anon` / `publishable**` (a pública, não a service_role)
-3. Confirmação que o schema/tabelas do banco atual continuam os mesmos (já vou ler `database.py` e mapear os modelos)
-4. Como tratar o `kanban_component` (componente customizado em `pages/04_projetos.py`)? Posso recriar como uma board React com drag-and-drop (`@dnd-kit`).
+**Alterações**
+- `prestadores.tipo` — manter, mas card destaca visualmente quando `multi-especialidade` (>1 vínculo em `prestador_especialidades`).
+- `prospeccoes` — adicionar `prestador_id` (nullable) pra rastrear conversão.
 
-## Escopo das telas a recriar
+**Grants + RLS** pra cada tabela nova: `authenticated` full, `service_role` all, policies via `has_role` ou `auth.uid()` conforme padrão atual. Municípios e especialidades: leitura pública pra `authenticated` (catálogo).
 
+## Fase B — Componentes compartilhados
 
-| Streamlit           | Rota React     | Conteúdo principal               |
-| ------------------- | -------------- | -------------------------------- |
-| `app.py` (login)    | `/login`       | Form de login Supabase Auth      |
-| `01_dashboard.py`   | `/` (auth)     | KPIs, gráficos (Recharts)        |
-| `02_prospeccao.py`  | `/prospeccao`  | Lista/CRUD de prospects          |
-| `03_prestadores.py` | `/prestadores` | Lista/CRUD prestadores + filtros |
-| `04_projetos.py`    | `/projetos`    | Kanban board drag-and-drop       |
-| `05_admin.py`       | `/admin`       | Gestão usuários, roles, configs  |
-| `06_meu_perfil.py`  | `/meu-perfil`  | Edição perfil do usuário         |
+- `MunicipioCombobox` — Shadcn Command + Popover, busca por nome/UF, virtualização (lista grande). Suporta seleção única e múltipla.
+- `EspecialidadeMultiSelect` — multi-select com chips, criar nova inline (admin).
+- `ResponsiveActions` — agrupa botões em DropdownMenu quando `sm:` ↓.
+- Sidebar atual já tem mobile? Verifico e adiciono Sheet (Shadcn) com hamburger se faltar.
 
+## Fase C — Módulo Projetos
 
-Layout compartilhado: sidebar shadcn colapsável + header com avatar/logout, rota `_authenticated` protegendo tudo exceto `/login`.
+- Aba "Detalhes" (atual) — troca textarea de municípios pelo `MunicipioCombobox` múltiplo gravando em `projeto_municipios`.
+- Aba "Metas" — CRUD em `metas_projeto`. Form: especialidade (opcional) × município (opcional) × quantidade. Tabela com filtros.
+- Aba "Benchmark" — CRUD + import CSV (papaparse). Modal de upload com preview e mapeamento de colunas.
 
-## Backend Python — o que acontece
+## Fase D — Módulo Prestadores
 
-Como você quer migrar **só o frontend**:
+- Form: substituir tipo único por `EspecialidadeMultiSelect` salvando em `prestador_especialidades`; manter `tipo` como classificação macro.
+- Form: cobertura por municípios via `MunicipioCombobox` múltiplo.
+- Lista: badge "Multi" destacado quando ≥3 especialidades; ordenação por nº de especialidades desc por padrão.
 
-- Os arquivos Python (`pages/`, `auth.py`, `database.py`, `app.py`, `ui.py`, `kanban_component/`, `webhook_server.py`, `whatsapp_service.py`, `sync_email.py`) ficam no repositório por enquanto.
-- **Toda lógica de dados será refeita em JS** chamando o Supabase direto (mesmas tabelas, mesmas RLS).
-- Funções que hoje rodam server-side em Python (envio de email, WhatsApp, sync) — me diga se viram Edge Functions Supabase, ficam no Python como serviço separado, ou viram TanStack server functions. Por padrão deixo de fora desta migração e você decide depois tela-por-tela.
+## Fase E — Prospecção (Kanban + interações + conversão)
 
-## Estrutura técnica
+- Refactor: reaproveitar o padrão dnd-kit que já existe em `_authenticated.projetos.tsx` aplicado a `prospeccoes` agrupadas por `etapa` (PROSPECCAO_ETAPAS).
+- Card: botão "Detalhes" → Dialog com timeline de `prospeccao_interacoes` + form de nova interação.
+- Botão "Converter em prestador" no card e no dialog: cria `prestadores` herdando nome/contato, copia especialidades/municípios já preenchidos, marca `prospeccoes.prestador_id` e move pra etapa `credenciado`.
 
-```text
-src/
-  routes/
-    __root.tsx              shell + providers + sidebar layout
-    login.tsx               público
-    _authenticated.tsx      gate: verifica sessão Supabase
-    _authenticated.index.tsx           Dashboard
-    _authenticated.prospeccao.tsx
-    _authenticated.prestadores.tsx
-    _authenticated.projetos.tsx        Kanban
-    _authenticated.admin.tsx
-    _authenticated.meu-perfil.tsx
-  integrations/supabase/
-    client.ts               createClient(URL, ANON_KEY) — VITE_SUPABASE_*
-    types.ts                gerado via supabase-gen-types (opcional)
-  components/
-    app-sidebar.tsx
-    ui/...                  shadcn
-  styles.css                tokens (#1E6B8A → --primary), Inter via @fontsource
-```
+## Fase F — Dashboard
 
-Stack: TanStack Start v1, React 19, Tailwind v4, shadcn/ui, `@supabase/supabase-js`, TanStack Query, Recharts (gráficos), `@dnd-kit` (kanban), `react-hook-form` + `zod` (forms), Sonner (toasts).
+- Cards de topo: total prestadores, total especialidades cobertas, % meta geral atingida, gap por município (com alert vermelho se >50%).
+- Recharts:
+  - BarChart "Realizado vs Meta" por especialidade.
+  - BarChart horizontal "Realizado vs Meta" por município.
+  - PieChart "Distribuição de prestadores por tipo".
+  - BarChart "Prestadores por nº de especialidades" (mostra concentração multi-esp).
+- Filtros: projeto + município + especialidade (querystring via `validateSearch`).
 
-Login usa `supabase.auth.signInWithPassword`; sessão lida com `onAuthStateChange` + `getSession`. Rota `_authenticated` redireciona para `/login` se não houver sessão.
+## Fase G — Responsividade global
 
-Sobre o erro de build (`build:dev not found`): hoje o projeto não tem `package.json` nenhum — só Python. Vou criar o esqueleto TanStack Start completo na primeira passada, o que resolve o erro automaticamente (o `lovable.toml` padrão para esse stack já espera `bun run build:dev`).
+- Auditoria rápida em cada tela: grid → `grid-cols-1 md:grid-cols-2 lg:grid-cols-N`, headers em `grid grid-cols-[minmax(0,1fr)_auto]`, tabelas em `overflow-x-auto`, modais com `max-h-[90vh] overflow-y-auto`.
+- Botões: aplica `ResponsiveActions` nas barras de ação.
 
-## Plano de execução
+## Detalhes técnicos
 
-1. **Scaffold**: criar `package.json`, `vite.config.ts`, `tsconfig.json`, `src/styles.css`, `src/router.tsx`, `src/routes/__root.tsx`, `src/routes/index.tsx` mínimos. Rodar `bun install`. Configurar Tailwind v4 + shadcn base.
-2. **Design system**: definir tokens (primary `#1E6B8A`, surfaces, sombras), instalar `@fontsource-variable/inter`, configurar componentes shadcn base (button, card, input, dialog, sidebar, table, etc).
-3. **Supabase client + auth**: `client.ts` lendo `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`, hook `useAuth`, rota `_authenticated` com gate.
-4. **Tela de login** (`/login`) — primeiro alvo verificável visualmente.
-5. **Layout autenticado**: sidebar com as 6 entradas + header.
-6. **Telas em ordem**: Dashboard → Meu Perfil → Prospecção → Prestadores → Admin → Projetos (kanban por último). Cada tela: ler o `.py` correspondente, mapear queries Supabase, recriar UI moderna, validar.
-7. **Limpeza**: remover/arquivar Streamlit só quando você confirmar que tudo está funcional.
+- **Migration municípios**: faço download do dataset oficial IBGE em build-time (script Python no plano), gero `INSERT` em batches de 500. Tamanho final ~250KB SQL, aceitável em migration única.
+- **Dependências novas**: `papaparse` (CSV), `cmdk` (já vem com Shadcn Command — verificar), `@radix-ui/react-popover`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-sheet` (não existe — uso Dialog).
+- **Verificação final**: build + browser via Playwright nas 5 telas principais.
 
-## O que NÃO está neste plano
+## Premissas que estou assumindo
 
-- Edge Functions / migração das integrações Python (WhatsApp, email, webhook)
-- Mudança de schema do banco
-- Testes automatizados
-- Deploy/CI
+1. Catálogo de especialidades começa vazio — admin cadastra; ofereço seed opcional de ~30 especialidades médicas comuns.
+2. Conversão prospecção→prestador NÃO duplica o card (fica como "credenciado" no kanban com badge "Convertido"); o `prestador_id` faz a ligação.
+3. Benchmark CSV padrão: colunas `origem,especialidade,municipio_uf,municipio_nome,quantidade,referencia`.
+4. Métrica "especialistas credenciados" = soma de `(prestador × especialidade)` distinct, não nº de prestadores.
 
-## Próximo passo
-
-Me passe URL + anon key do seu Supabase (ou confirme que prefere colocá-los como `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` num `.env` que você preenche). Assim que aprovar, começo pelo passo 1 (scaffold + login).  
-  
-`VITE_SUPABASE_URL =`[https://ogoaswmsdvnwkvgmbcpr.supabase.co](https://ogoaswmsdvnwkvgmbcpr.supabase.co)  
-`VITE_SUPABASE_PUBLISHABLE_KEY =` sb_publishable_laRVOh3D8QTTwD5C7fNoKQ_ZVbQNekw
+Confirma o plano e eu sigo direto pra implementação. Se algo desses 4 pontos acima estiver errado, corrige antes que eu comece.
