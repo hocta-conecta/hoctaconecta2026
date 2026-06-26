@@ -353,7 +353,7 @@ function DashboardPage() {
       </header>
 
       {/* KPIs Globais */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-6">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-6">
         <KpiCard label="Total Prestadores" value={data?.totalPrestadores ?? 0} icon={Users} tone="primary" />
         <KpiCard
           label="Especialidades cobertas"
@@ -734,14 +734,14 @@ function KpiCard({
   return (
     <Card>
       <CardContent className="pt-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <p className="text-sm text-muted-foreground">{label}</p>
-            <p className="text-3xl font-bold tracking-tight mt-1">{value}</p>
-            {subtitle && <p className="text-xs text-muted-foreground mt-2">{subtitle}</p>}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-muted-foreground truncate">{label}</p>
+            <p className="text-2xl sm:text-3xl font-bold tracking-tight mt-1">{value}</p>
+            {subtitle && <p className="text-xs text-muted-foreground mt-2 truncate">{subtitle}</p>}
           </div>
-          <div className={cn("h-12 w-12 rounded-lg flex items-center justify-center flex-shrink-0", toneClass)}>
-            <Icon className="h-6 w-6" />
+          <div className={cn("h-10 w-10 sm:h-12 sm:w-12 rounded-lg flex items-center justify-center flex-shrink-0", toneClass)}>
+            <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
         </div>
       </CardContent>
