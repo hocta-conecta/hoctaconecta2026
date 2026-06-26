@@ -5,6 +5,7 @@ export const PRESTADOR_TIPOS: { value: string; label: string }[] = [
   { value: "laboratorio", label: "Laboratório" },
   { value: "servico_imagem", label: "Serviço de Imagem" },
   { value: "policlinica", label: "Policlínica" },
+  { value: "hospital", label: "Hospital" },
   { value: "outro", label: "Outro" },
 ];
 
