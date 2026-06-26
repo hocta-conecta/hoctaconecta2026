@@ -414,14 +414,12 @@ export function UfSingleSelect({
   const { data: ufs = [] } = useQuery({
     queryKey: ["ufs-list"],
     queryFn: async () => {
-      // Busca todas as UFs únicas da tabela de municípios
       const { data, error } = await supabase
         .from("municipios")
         .select("uf");
       
       if (error) throw error;
       
-      // Filtra UFs únicas e ordena alfabeticamente
       const uniqueUfs = Array.from(new Set((data ?? [])
         .map((m) => m.uf)
         .filter(Boolean)))
@@ -433,18 +431,45 @@ export function UfSingleSelect({
   });
 
   return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="w-full">
-        <SelectValue placeholder="Selecione a UF" />
-      </SelectTrigger>
-      <SelectContent>
-        {ufs.map((uf) => (
-          <SelectItem key={uf} value={uf}>
-            {uf}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          className="w-full justify-between font-normal"
+        >
+          {value || "Selecione a UF..."}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        <Command>
+          <CommandInput placeholder="Buscar UF..." />
+          <CommandList>
+            <CommandEmpty>Nenhuma UF encontrada.</CommandEmpty>
+            <CommandGroup>
+              {ufs.map((uf) => (
+                <CommandItem
+                  key={uf}
+                  value={uf}
+                  onSelect={() => {
+                    onChange(uf);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === uf ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {uf}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 
