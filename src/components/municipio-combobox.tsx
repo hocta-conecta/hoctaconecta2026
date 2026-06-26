@@ -404,6 +404,12 @@ export function MunicipioMultiCombobox({
 /**
  * Componente para seleção de UF única
  */
+const BR_UFS = [
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", 
+  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", 
+  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
+];
+
 export function UfSingleSelect({
   value,
   onChange,
@@ -411,24 +417,8 @@ export function UfSingleSelect({
   value: string;
   onChange: (uf: string) => void;
 }) {
-  const { data: ufs = [] } = useQuery({
-    queryKey: ["ufs-list"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("municipios")
-        .select("uf");
-      
-      if (error) throw error;
-      
-      const uniqueUfs = Array.from(new Set((data ?? [])
-        .map((m) => m.uf)
-        .filter(Boolean)))
-        .sort();
-        
-      return uniqueUfs;
-    },
-    staleTime: Infinity,
-  });
+  // Usamos a lista estática para garantir que todas as 27 UFs apareçam sem limites do banco
+  const ufs = BR_UFS;
 
   return (
     <Popover>
