@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Clock,
   Target,
+  Sparkles,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -51,6 +52,9 @@ type DashboardStats = {
   prestadoresCredenciados: { nome: string; especialidade: string; data: string }[];
   coberturaMunicipios: { municipio: string; total: number }[];
   metaAnual: number;
+  totalEspecialidadesCobertas: number;
+  prestadoresMulti: { nome: string; n: number }[];
+  realizadoVsMeta: { especialidade: string; meta: number; realizado: number }[];
 };
 
 const ETAPA_LABEL: Record<string, string> = {
@@ -82,6 +86,8 @@ async function loadDashboardStats(): Promise<DashboardStats> {
     municipiosRes,
     especialidadesRes,
     credPorMesRes,
+    prestadorEspRes,
+    metasRes,
   ] = await Promise.all([
     // Total prestadores
     supabase.from("prestadores").select("*", { count: "exact", head: true }),
@@ -146,6 +152,16 @@ async function loadDashboardStats(): Promise<DashboardStats> {
       .select("data_contratacao, criado_em")
       .eq("etapa", "credenciado")
       .gte("criado_em", inicioAno),
+
+    // Vínculos prestador-especialidade (para métricas N:N)
+    supabase
+      .from("prestador_especialidades")
+      .select("prestador_id, especialidade_id, especialidade, prestadores(razao_social, nome_fantasia)"),
+
+    // Metas (todos projetos)
+    supabase
+      .from("metas_projeto")
+      .select("especialidade_id, quantidade_meta, especialidades(nome)"),
   ]);
 
   const totalCred = credenciadosRes.count ?? 0;
@@ -237,6 +253,49 @@ async function loadDashboardStats(): Promise<DashboardStats> {
     count: mesMap[i] ?? 0,
   })).filter((_, i) => i <= now.getMonth());
 
+  // ===== Métricas baseadas em N:N prestador_especialidades =====
+  const peRows = (prestadorEspRes.data ?? []) as Array<{
+    prestador_id: number;
+    especialidade_id: number | null;
+    especialidade: string;
+    prestadores: { razao_social: string; nome_fantasia: string | null } | null;
+  }>;
+
+  const espSet = new Set<string>();
+  const perPrestador: Record<number, { nome: string; n: number }> = {};
+  const realizadoPorEsp: Record<string, number> = {};
+  for (const r of peRows) {
+    espSet.add(r.especialidade);
+    const nome = r.prestadores?.nome_fantasia || r.prestadores?.razao_social || `#${r.prestador_id}`;
+    if (!perPrestador[r.prestador_id]) perPrestador[r.prestador_id] = { nome, n: 0 };
+    perPrestador[r.prestador_id].n += 1;
+    realizadoPorEsp[r.especialidade] = (realizadoPorEsp[r.especialidade] ?? 0) + 1;
+  }
+
+  const prestadoresMulti = Object.values(perPrestador)
+    .sort((a, b) => b.n - a.n)
+    .slice(0, 6);
+
+  // ===== Realizado vs Meta =====
+  const metaRows = (metasRes.data ?? []) as Array<{
+    especialidade_id: number | null;
+    quantidade_meta: number;
+    especialidades: { nome: string } | null;
+  }>;
+  const metaPorEsp: Record<string, number> = {};
+  for (const m of metaRows) {
+    const nome = m.especialidades?.nome ?? "Meta geral";
+    metaPorEsp[nome] = (metaPorEsp[nome] ?? 0) + (m.quantidade_meta ?? 0);
+  }
+  const realizadoVsMeta = Object.keys({ ...metaPorEsp, ...realizadoPorEsp })
+    .map((especialidade) => ({
+      especialidade,
+      meta: metaPorEsp[especialidade] ?? 0,
+      realizado: realizadoPorEsp[especialidade] ?? 0,
+    }))
+    .sort((a, b) => b.meta - a.meta)
+    .slice(0, 10);
+
   return {
     totalPrestadores: prestadoresRes.count ?? 0,
     totalProspectos: totalProsp,
@@ -252,6 +311,9 @@ async function loadDashboardStats(): Promise<DashboardStats> {
     prestadoresCredenciados,
     coberturaMunicipios,
     metaAnual: 0, // sem meta definida no banco ainda
+    totalEspecialidadesCobertas: espSet.size,
+    prestadoresMulti,
+    realizadoVsMeta,
   };
 }
 
@@ -291,8 +353,14 @@ function DashboardPage() {
       </header>
 
       {/* KPIs Globais */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-6">
         <KpiCard label="Total Prestadores" value={data?.totalPrestadores ?? 0} icon={Users} tone="primary" />
+        <KpiCard
+          label="Especialidades cobertas"
+          value={data?.totalEspecialidadesCobertas ?? 0}
+          icon={Sparkles}
+          tone="accent"
+        />
         <KpiCard label="Prospecções Ativas" value={data?.totalProspectos ?? 0} icon={Target} tone="warning" />
         <KpiCard label="Credenciados" value={data?.credenciados ?? 0} icon={CheckCircle2} tone="success" />
         <KpiCard
@@ -318,8 +386,9 @@ function DashboardPage() {
 
       {/* Tabs Principais */}
       <Tabs defaultValue="planejamento" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
           <TabsTrigger value="planejamento">📋 Planejamento</TabsTrigger>
+          <TabsTrigger value="metas">🎯 Metas</TabsTrigger>
           <TabsTrigger value="prospeccao">🎯 Prospecção Ativa</TabsTrigger>
           <TabsTrigger value="credenciamento">✅ Credenciamento</TabsTrigger>
         </TabsList>
@@ -366,6 +435,66 @@ function DashboardPage() {
                         <p className="text-sm font-medium truncate">{m.municipio}</p>
                         <p className="text-2xl font-bold text-primary mt-2">{m.total}</p>
                         <p className="text-xs text-muted-foreground mt-1">prestadores</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* ABA METAS */}
+        <TabsContent value="metas" className="space-y-6">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Realizado vs Meta — por Especialidade</CardTitle>
+                <CardDescription>Soma das metas cadastradas em todos os projetos</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {data?.realizadoVsMeta.length === 0 ? (
+                  <EmptyState mensagem="Nenhuma meta cadastrada ainda. Abra um projeto e use a aba Metas." />
+                ) : (
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart data={data?.realizadoVsMeta}>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                      <XAxis dataKey="especialidade" tick={{ fontSize: 10 }} angle={-15} textAnchor="end" height={60} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="meta" fill="#1558a8" name="Meta" />
+                      <Bar dataKey="realizado" fill="#27AE60" name="Realizado" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Top prestadores multi-especialidade</CardTitle>
+                <CardDescription>Concentração estratégica de cobertura</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {data?.prestadoresMulti.length === 0 ? (
+                  <EmptyState mensagem="Cadastre prestadores e vincule especialidades." />
+                ) : (
+                  <div className="space-y-3">
+                    {data?.prestadoresMulti.map((p) => (
+                      <div key={p.nome} className="flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{p.nome}</p>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden mt-1">
+                            <div
+                              className="h-full bg-primary"
+                              style={{ width: `${Math.min(100, (p.n / Math.max(1, data!.prestadoresMulti[0].n)) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                        <Badge variant={p.n >= 3 ? "success" : "secondary"}>
+                          {p.n} esp.
+                        </Badge>
                       </div>
                     ))}
                   </div>
