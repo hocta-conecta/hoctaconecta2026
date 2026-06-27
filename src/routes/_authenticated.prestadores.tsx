@@ -129,6 +129,7 @@ function PrestadoresPage() {
   const [editing, setEditing] = React.useState<Prestador | null>(null);
   const [especialidadesSel, setEspecialidadesSel] = React.useState<number[]>([]);
   const [municipiosSel, setMunicipiosSel] = React.useState<number[]>([]);
+  const [tipoOpen, setTipoOpen] = React.useState(false);
 
   const form = useForm<FormValues>({ defaultValues: empty });
 
@@ -261,13 +262,13 @@ function PrestadoresPage() {
     <div className="space-y-6">
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:flex-wrap sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-3xl font-bold tracking-tight">Prestadores</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-xl sm:text-3xl font-bold tracking-tight truncate">Prestadores</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             Cadastro e filtros da rede prestadora.
           </p>
         </div>
-        <Button variant="gradient" onClick={openNew} className="w-auto">
-          <Plus /> Novo prestador
+        <Button variant="gradient" size="sm" onClick={openNew} className="w-auto shrink-0 sm:size-default">
+          <Plus className="h-4 w-4" /> <span className="hidden xs:inline sm:inline">Novo prestador</span><span className="xs:hidden sm:hidden">Novo</span>
         </Button>
       </header>
 
@@ -434,12 +435,12 @@ function PrestadoresPage() {
             </div>
             <div className="space-y-2">
               <Label>Tipo</Label>
-              <Popover>
+              <Popover open={tipoOpen} onOpenChange={setTipoOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     role="combobox"
-                    className="w-full justify-between font-normal"
+                    className="w-full justify-between font-normal h-10"
                   >
                     {form.watch("tipo")
                       ? PRESTADOR_TIPOS.find((t) => t.value === form.watch("tipo"))?.label
@@ -447,10 +448,10 @@ function PrestadoresPage() {
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                   <Command>
                     <CommandInput placeholder="Buscar tipo..." />
-                    <CommandList>
+                    <CommandList className="max-h-72 overscroll-contain touch-pan-y">
                       <CommandEmpty>Nenhum tipo encontrado.</CommandEmpty>
                       <CommandGroup>
                         {PRESTADOR_TIPOS.map((t) => (
@@ -459,6 +460,7 @@ function PrestadoresPage() {
                             value={t.label}
                             onSelect={() => {
                               form.setValue("tipo", t.value);
+                              setTipoOpen(false);
                             }}
                           >
                             <Check
