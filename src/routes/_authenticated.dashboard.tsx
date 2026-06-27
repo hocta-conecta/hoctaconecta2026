@@ -93,7 +93,7 @@ async function loadDashboardStats(): Promise<DashboardStats> {
     supabase.from("prestadores").select("*", { count: "exact", head: true }),
 
     // Todas prospecções para funil
-    supabase.from("prospeccoes").select("etapa"),
+    supabase.from("prospeccoes").select("etapa, criado_em, atualizado_em"),
 
     // Total projetos ativos
     supabase.from("projetos").select("*", { count: "exact", head: true }).eq("status", "ativo"),
@@ -122,10 +122,9 @@ async function loadDashboardStats(): Promise<DashboardStats> {
     // Prestadores em prospecção ativa (não finalizados)
     supabase
       .from("prospeccoes")
-      .select("etapa, prestadores(razao_social, nome_fantasia, especialidade)")
+      .select("etapa, criado_em, prestadores(razao_social, nome_fantasia, especialidade)")
       .not("etapa", "in", '("credenciado","declinado")')
-      .order("criado_em", { ascending: false })
-      .limit(10),
+      .order("criado_em", { ascending: false }),
 
     // Prestadores credenciados recentes
     supabase
@@ -168,13 +167,19 @@ async function loadDashboardStats(): Promise<DashboardStats> {
   const totalProsp = prospeccoesTodas.data?.length ?? 1;
   const taxa = totalProsp > 0 ? Math.round((totalCred / totalProsp) * 100) : 0;
 
-  // Funil por etapa
+  // Funil por etapa - Garantir que todas as etapas apareçam mesmo com 0
   const etapaCounts: Record<string, number> = {};
+  // Inicializa todas as etapas com 0
+  Object.keys(ETAPA_LABEL).forEach(key => {
+    if (key !== "declinado") etapaCounts[key] = 0;
+  });
+
   for (const p of prospeccoesTodas.data ?? []) {
-    etapaCounts[p.etapa] = (etapaCounts[p.etapa] ?? 0) + 1;
+    if (p.etapa !== "declinado") {
+      etapaCounts[p.etapa] = (etapaCounts[p.etapa] ?? 0) + 1;
+    }
   }
   const porEtapa = Object.entries(etapaCounts)
-    .filter(([e]) => e !== "declinado")
     .map(([etapa, count]) => ({ etapa: ETAPA_LABEL[etapa] ?? etapa, count }));
 
   // Inativos
