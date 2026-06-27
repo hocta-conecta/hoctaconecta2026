@@ -235,15 +235,17 @@ function ProjetosPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Projetos</h1>
-          <p className="text-muted-foreground mt-1">
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:flex-wrap sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-3xl font-bold tracking-tight truncate">Projetos</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             Arraste os cartões para alterar o status.
           </p>
         </div>
-        <Button variant="gradient" onClick={openNew}>
-          <Plus /> Novo projeto
+        <Button variant="gradient" size="sm" onClick={openNew} className="shrink-0">
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">Novo projeto</span>
+          <span className="sm:hidden">Novo</span>
         </Button>
       </header>
 
