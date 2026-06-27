@@ -344,27 +344,37 @@ function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-xl sm:text-3xl font-bold tracking-tight">Dashboard Corporativo</h1>
-        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-          Visão geral e KPIs consolidados da rede prestadora
-        </p>
+    <div className="space-y-8 pb-10">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+            Dashboard Corporativo
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1 font-medium">
+            Visão estratégica e indicadores de performance da rede
+          </p>
+        </div>
+        <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm p-1 rounded-lg border shadow-sm">
+          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 py-1">
+            <div className="h-2 w-2 rounded-full bg-emerald-500 mr-2 animate-pulse" />
+            Dados em tempo real
+          </Badge>
+        </div>
       </header>
 
       {/* KPIs Globais */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-6">
-        <KpiCard label="Total Prestadores" value={data?.totalPrestadores ?? 0} icon={Users} tone="primary" />
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiCard label="Prestadores" value={data?.totalPrestadores ?? 0} icon={Users} tone="primary" />
         <KpiCard
-          label="Especialidades cobertas"
+          label="Especialidades"
           value={data?.totalEspecialidadesCobertas ?? 0}
           icon={Sparkles}
           tone="accent"
         />
-        <KpiCard label="Prospecções Ativas" value={data?.totalProspectos ?? 0} icon={Target} tone="warning" />
+        <KpiCard label="Prospecções" value={data?.totalProspectos ?? 0} icon={Target} tone="warning" />
         <KpiCard label="Credenciados" value={data?.credenciados ?? 0} icon={CheckCircle2} tone="success" />
         <KpiCard
-          label="Taxa de Conversão"
+          label="Conversão"
           value={`${data?.taxaConversao ?? 0}%`}
           icon={TrendingUp}
           tone="accent"
@@ -397,22 +407,31 @@ function DashboardPage() {
         <TabsContent value="planejamento" className="space-y-6">
           <div className="grid gap-4 lg:grid-cols-2">
             {/* Cobertura por Especialidade */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Credenciados por Especialidade</CardTitle>
+            <Card className="border-none shadow-md overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-emerald-500/5 to-teal-500/5 pb-4">
+                <CardTitle className="text-lg">Credenciados por Especialidade</CardTitle>
                 <CardDescription>Distribuição real da rede credenciada</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 {data?.porEspecialidade.length === 0 ? (
                   <EmptyState mensagem="Nenhum credenciado registrado ainda." />
                 ) : (
-                  <ResponsiveContainer width="100%" height={220} className="sm:!h-[300px]">
-                    <BarChart data={data?.porEspecialidade}>
-                      <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                      <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
+                  <ResponsiveContainer width="100%" height={240} className="sm:!h-[320px]">
+                    <BarChart data={data?.porEspecialidade} margin={{ top: 20, right: 30, left: 0, bottom: 60 }}>
+                      <defs>
+                        <linearGradient id="colorBar" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#27AE60" stopOpacity={0.9} />
+                          <stop offset="95%" stopColor="#1e8449" stopOpacity={0.7} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.15} stroke="#e0e0e0" />
+                      <XAxis dataKey="nome" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={80} />
                       <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip />
-                      <Bar dataKey="credenciados" fill="#27AE60" name="Credenciados" />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: "#fff", border: "1px solid #e0e0e0", borderRadius: "8px" }}
+                        cursor={{ fill: "rgba(39, 174, 96, 0.1)" }}
+                      />
+                      <Bar dataKey="credenciados" fill="url(#colorBar)" name="Credenciados" radius={[8, 8, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -420,21 +439,32 @@ function DashboardPage() {
             </Card>
 
             {/* Cobertura por Município */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Prestadores por Município</CardTitle>
-                <CardDescription>Quantidade de prestadores cadastrados por cidade</CardDescription>
+            <Card className="border-none shadow-md overflow-hidden">
+              <CardHeader className="bg-muted/30 pb-4">
+                <CardTitle className="text-lg">Prestadores por Município</CardTitle>
+                <CardDescription>Principais cidades da rede</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 {data?.coberturaMunicipios.length === 0 ? (
                   <EmptyState mensagem="Nenhum prestador com cidade registrada." />
                 ) : (
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-4 sm:grid-cols-2">
                     {data?.coberturaMunicipios.map((m) => (
-                      <div key={m.municipio} className="p-4 border rounded-lg">
-                        <p className="text-sm font-medium truncate">{m.municipio}</p>
-                        <p className="text-2xl font-bold text-primary mt-2">{m.total}</p>
-                        <p className="text-xs text-muted-foreground mt-1">prestadores</p>
+                      <div key={m.municipio} className="group p-4 border rounded-xl bg-white hover:border-primary/50 hover:shadow-md transition-all">
+                        <div className="flex justify-between items-start">
+                          <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors truncate max-w-[120px]" title={m.municipio}>
+                            {m.municipio}
+                          </p>
+                          <Badge variant="secondary" className="bg-primary/5 text-primary border-none">
+                            {m.total}
+                          </Badge>
+                        </div>
+                        <div className="mt-3 h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-primary transition-all duration-1000" 
+                            style={{ width: `${(m.total / data!.coberturaMunicipios[0].total) * 100}%` }}
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -471,32 +501,45 @@ function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Top prestadores multi-especialidade</CardTitle>
+            <Card className="border-none shadow-md overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-primary/5 to-blue-500/5 pb-4">
+                <CardTitle className="text-lg">Top Prestadores Multi-Especialidade</CardTitle>
                 <CardDescription>Concentração estratégica de cobertura</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 {data?.prestadoresMulti.length === 0 ? (
                   <EmptyState mensagem="Cadastre prestadores e vincule especialidades." />
                 ) : (
-                  <div className="space-y-3">
-                    {data?.prestadoresMulti.map((p) => (
-                      <div key={p.nome} className="flex items-center gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{p.nome}</p>
-                          <div className="h-2 bg-muted rounded-full overflow-hidden mt-1">
+                  <div className="space-y-4">
+                    {data?.prestadoresMulti.map((p, idx) => {
+                      const percentage = Math.min(100, (p.n / Math.max(1, data!.prestadoresMulti[0].n)) * 100);
+                      return (
+                        <div key={p.nome} className="group">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <div className="flex-shrink-0 h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                                {idx + 1}
+                              </div>
+                              <p className="text-sm font-bold text-foreground truncate group-hover:text-primary transition-colors" title={p.nome}>
+                                {p.nome}
+                              </p>
+                            </div>
+                            <Badge className={cn(
+                              "ml-2 font-bold",
+                              p.n >= 3 ? "bg-emerald-500/20 text-emerald-700 border-emerald-200" : "bg-primary/10 text-primary border-primary/20"
+                            )}>
+                              {p.n} esp.
+                            </Badge>
+                          </div>
+                          <div className="h-2.5 bg-muted rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-primary"
-                              style={{ width: `${Math.min(100, (p.n / Math.max(1, data!.prestadoresMulti[0].n)) * 100)}%` }}
+                              className="h-full bg-gradient-to-r from-primary to-blue-500 transition-all duration-1000 rounded-full"
+                              style={{ width: `${percentage}%` }}
                             />
                           </div>
                         </div>
-                        <Badge variant={p.n >= 3 ? "success" : "secondary"}>
-                          {p.n} esp.
-                        </Badge>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -508,22 +551,31 @@ function DashboardPage() {
         <TabsContent value="prospeccao" className="space-y-6">
           <div className="grid gap-4 lg:grid-cols-2">
             {/* Funil de Prospecção */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Funil de Etapas</CardTitle>
+            <Card className="border-none shadow-md overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-blue-500/5 to-indigo-500/5 pb-4">
+                <CardTitle className="text-lg flex items-center gap-2">📊 Funil de Etapas</CardTitle>
                 <CardDescription>Prospecções em andamento por etapa</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 {data?.porEtapa.length === 0 ? (
                   <EmptyState mensagem="Nenhuma prospecção registrada." />
                 ) : (
-                  <ResponsiveContainer width="100%" height={220} className="sm:!h-[300px]">
-                    <BarChart data={data?.porEtapa} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                  <ResponsiveContainer width="100%" height={240} className="sm:!h-[320px]">
+                    <BarChart data={data?.porEtapa} layout="vertical" margin={{ top: 10, right: 30, left: 140, bottom: 10 }}>
+                      <defs>
+                        <linearGradient id="colorFunil" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#1558a8" stopOpacity={0.8} />
+                          <stop offset="100%" stopColor="#2A95B6" stopOpacity={0.6} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.15} stroke="#e0e0e0" />
                       <XAxis type="number" tick={{ fontSize: 11 }} />
-                      <YAxis dataKey="etapa" type="category" tick={{ fontSize: 10 }} width={120} />
-                      <Tooltip />
-                      <Bar dataKey="count" fill="#1558a8" radius={[0, 6, 6, 0]} />
+                      <YAxis dataKey="etapa" type="category" tick={{ fontSize: 10 }} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: "#fff", border: "1px solid #e0e0e0", borderRadius: "8px" }}
+                        cursor={{ fill: "rgba(21, 88, 168, 0.1)" }}
+                      />
+                      <Bar dataKey="count" fill="url(#colorFunil)" radius={[0, 8, 8, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -531,26 +583,39 @@ function DashboardPage() {
             </Card>
 
             {/* Ranking Executivos */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Ranking de Executivos</CardTitle>
+            <Card className="border-none shadow-md overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-amber-500/5 to-orange-500/5 pb-4">
+                <CardTitle className="text-lg flex items-center gap-2">🏆 Ranking de Executivos</CardTitle>
                 <CardDescription>Performance em prospecções e credenciamentos</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 {data?.rankingExecutivos.length === 0 ? (
                   <EmptyState mensagem="Nenhum executivo com prospecções vinculadas." />
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {data?.rankingExecutivos.map((exec, idx) => (
-                      <div key={exec.nome} className="flex items-start gap-3">
-                        <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary font-semibold text-sm">
-                          {idx + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm">{exec.nome}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {exec.interacoes} prospecções · {exec.credenciados} credenciados
-                          </p>
+                      <div key={exec.nome} className="group p-3 rounded-lg hover:bg-primary/5 transition-all duration-300 border border-transparent hover:border-primary/20">
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full font-bold text-sm text-white transition-transform group-hover:scale-110",
+                            idx === 0 ? "bg-gradient-to-br from-yellow-400 to-yellow-600" :
+                            idx === 1 ? "bg-gradient-to-br from-slate-300 to-slate-500" :
+                            idx === 2 ? "bg-gradient-to-br from-orange-300 to-orange-600" :
+                            "bg-primary"
+                          )}>
+                            {idx + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-sm text-foreground group-hover:text-primary transition-colors">{exec.nome}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                                🆘 {exec.interacoes}
+                              </span>
+                              <span className="inline-flex items-center gap-1 text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
+                                ✅ {exec.credenciados}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -561,31 +626,33 @@ function DashboardPage() {
           </div>
 
           {/* Lista Prestadores Ativos */}
-          <Card>
+          <Card className="border-none shadow-md">
             <CardHeader>
               <CardTitle>Prestadores em Prospecção</CardTitle>
-              <CardDescription>Prospecções em andamento (excluídos credenciados e declinados)</CardDescription>
+              <CardDescription>Acompanhamento de negociações em curso</CardDescription>
             </CardHeader>
             <CardContent>
               {data?.prestadoresAtivos.length === 0 ? (
                 <EmptyState mensagem="Nenhuma prospecção ativa no momento." />
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto -mx-6 px-6">
                   <table className="w-full text-sm">
-                    <thead className="border-b">
-                      <tr>
-                        <th className="text-left py-2 px-3 font-medium">Prestador</th>
-                        <th className="text-left py-2 px-3 font-medium">Especialidade</th>
-                        <th className="text-left py-2 px-3 font-medium">Etapa</th>
+                    <thead>
+                      <tr className="text-muted-foreground border-b border-muted/50">
+                        <th className="text-left py-3 px-3 font-semibold uppercase tracking-wider text-[10px]">Prestador</th>
+                        <th className="text-left py-3 px-3 font-semibold uppercase tracking-wider text-[10px]">Especialidade</th>
+                        <th className="text-left py-3 px-3 font-semibold uppercase tracking-wider text-[10px]">Etapa</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-muted/30">
                       {data?.prestadoresAtivos.map((r, i) => (
-                        <tr key={i} className="border-b hover:bg-muted/50">
-                          <td className="py-2 px-3">{r.nome}</td>
-                          <td className="py-2 px-3">{r.especialidade}</td>
-                          <td className="py-2 px-3">
-                            <Badge variant="outline">{r.etapa}</Badge>
+                        <tr key={i} className="group hover:bg-primary/5 transition-colors">
+                          <td className="py-4 px-3 font-medium text-foreground min-w-[200px]">{r.nome}</td>
+                          <td className="py-4 px-3 text-muted-foreground">{r.especialidade}</td>
+                          <td className="py-4 px-3">
+                            <Badge variant="outline" className="font-semibold border-primary/20 bg-primary/5 text-primary">
+                              {r.etapa}
+                            </Badge>
                           </td>
                         </tr>
                       ))}
@@ -601,28 +668,31 @@ function DashboardPage() {
         <TabsContent value="credenciamento" className="space-y-6">
           <div className="grid gap-4 lg:grid-cols-2">
             {/* Evolução Temporal */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Evolução de Credenciamentos</CardTitle>
-                <CardDescription>Meses do ano atual</CardDescription>
+            <Card className="border-none shadow-md overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-emerald-500/5 to-green-500/5 pb-4">
+                <CardTitle className="text-lg flex items-center gap-2">📈 Evolução de Credenciamentos</CardTitle>
+                <CardDescription>Tendência ao longo do ano</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 {data?.credenciamentosPorMes.every((m) => m.count === 0) ? (
                   <EmptyState mensagem="Nenhum credenciamento registrado este ano." />
                 ) : (
-                  <ResponsiveContainer width="100%" height={220} className="sm:!h-[300px]">
-                    <AreaChart data={data?.credenciamentosPorMes}>
+                  <ResponsiveContainer width="100%" height={240} className="sm:!h-[320px]">
+                    <AreaChart data={data?.credenciamentosPorMes} margin={{ top: 10, right: 30, left: 0, bottom: 10 }}>
                       <defs>
                         <linearGradient id="colorCred" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#27AE60" stopOpacity={0.8} />
+                          <stop offset="5%" stopColor="#27AE60" stopOpacity={0.9} />
                           <stop offset="95%" stopColor="#27AE60" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.15} stroke="#e0e0e0" />
                       <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
                       <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip />
-                      <Area type="monotone" dataKey="count" name="Credenciados" stroke="#27AE60" fillOpacity={1} fill="url(#colorCred)" />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: "#fff", border: "1px solid #e0e0e0", borderRadius: "8px" }}
+                        cursor={{ fill: "rgba(39, 174, 96, 0.1)" }}
+                      />
+                      <Area type="monotone" dataKey="count" name="Credenciados" stroke="#27AE60" strokeWidth={2} fillOpacity={1} fill="url(#colorCred)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 )}
@@ -675,21 +745,29 @@ function DashboardPage() {
           </div>
 
           {/* Prestadores Credenciados */}
-          <Card>
+          <Card className="border-none shadow-md">
             <CardHeader>
-              <CardTitle>Prestadores Credenciados Recentes</CardTitle>
-              <CardDescription>Rede credenciada ativa — últimos credenciados</CardDescription>
+              <CardTitle>Rede Credenciada Recente</CardTitle>
+              <CardDescription>Novos parceiros integrados à rede</CardDescription>
             </CardHeader>
             <CardContent>
               {data?.prestadoresCredenciados.length === 0 ? (
                 <EmptyState mensagem="Nenhum prestador credenciado ainda." />
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                   {data?.prestadoresCredenciados.map((p, i) => (
-                    <div key={i} className="p-4 border rounded-lg hover:bg-muted/50 transition">
-                      <p className="font-medium text-sm">{p.nome}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{p.especialidade}</p>
-                      <p className="text-xs text-success mt-2">Credenciado em {p.data}</p>
+                    <div key={i} className="relative p-5 border rounded-2xl bg-white hover:border-emerald-500/50 hover:shadow-lg transition-all duration-300 group overflow-hidden">
+                      <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <CheckCircle2 className="h-12 w-12 text-emerald-600" />
+                      </div>
+                      <p className="font-bold text-base text-foreground group-hover:text-emerald-700 transition-colors truncate" title={p.nome}>
+                        {p.nome}
+                      </p>
+                      <p className="text-xs font-medium text-muted-foreground mt-1 uppercase tracking-wide">{p.especialidade}</p>
+                      <div className="mt-4 flex items-center gap-2">
+                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        <p className="text-[11px] font-bold text-emerald-600">Integrado em {p.data}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -725,25 +803,28 @@ function KpiCard({
   subtitle?: string;
 }) {
   const toneClass = {
-    primary: "bg-primary/10 text-primary",
-    success: "bg-success/10 text-success",
-    accent: "bg-accent text-accent-foreground",
-    warning: "bg-warning/15 text-warning",
+    primary: "bg-primary/10 text-primary border-primary/20",
+    success: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+    accent: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+    warning: "bg-amber-500/10 text-amber-600 border-amber-500/20",
   }[tone];
 
   return (
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <p className="text-sm text-muted-foreground truncate">{label}</p>
-            <p className="text-2xl sm:text-3xl font-bold tracking-tight mt-1">{value}</p>
-            {subtitle && <p className="text-xs text-muted-foreground mt-2 truncate">{subtitle}</p>}
+    <Card className="overflow-hidden border-none shadow-md bg-white/50 backdrop-blur-sm hover:shadow-lg transition-all duration-300 group">
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
+            <div className="flex items-baseline gap-1">
+              <h3 className="text-2xl font-bold tracking-tight text-foreground">{value}</h3>
+            </div>
+            {subtitle && <p className="text-[10px] text-muted-foreground font-medium">{subtitle}</p>}
           </div>
-          <div className={cn("h-10 w-10 sm:h-12 sm:w-12 rounded-lg flex items-center justify-center flex-shrink-0", toneClass)}>
-            <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
+          <div className={cn("p-2.5 rounded-xl border transition-transform duration-300 group-hover:scale-110", toneClass)}>
+            <Icon className="h-5 w-5" />
           </div>
         </div>
+        <div className="absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
       </CardContent>
     </Card>
   );
