@@ -134,7 +134,7 @@ export function NewPrestadorModal({
                   { value: "servico_imagem", label: "Serviço de Imagem" },
                   { value: "policlinica", label: "Policlínica" },
                   { value: "hospital", label: "Hospital" },
-                  { value: "Servicos de Anestesiologia", label: "Servicos de Anestesiologia" },
+                  { value: "servico_anestesiologia", label: "Serviços de Anestesiologia" },
                   { value: "outro", label: "Outro" },
                 ].map((t) => (
                   <SelectItem key={t.value} value={t.value}>
