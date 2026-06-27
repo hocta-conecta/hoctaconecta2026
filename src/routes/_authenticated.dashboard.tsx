@@ -346,8 +346,8 @@ function DashboardPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard Corporativo</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-xl sm:text-3xl font-bold tracking-tight">Dashboard Corporativo</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
           Visão geral e KPIs consolidados da rede prestadora
         </p>
       </header>
