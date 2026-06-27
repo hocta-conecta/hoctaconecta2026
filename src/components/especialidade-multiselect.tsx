@@ -86,7 +86,7 @@ export function EspecialidadeMultiSelect({
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
           <Command
             filter={(itemValue, q) =>
               itemValue.toLowerCase().includes(q.toLowerCase()) ? 1 : 0
@@ -97,7 +97,7 @@ export function EspecialidadeMultiSelect({
               value={search}
               onValueChange={setSearch}
             />
-            <CommandList>
+            <CommandList className="max-h-72 overscroll-contain touch-pan-y">
               <CommandEmpty>
                 {allowCreate && search.trim() ? (
                   <button
