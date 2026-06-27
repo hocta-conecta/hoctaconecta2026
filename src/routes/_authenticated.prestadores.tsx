@@ -267,8 +267,10 @@ function PrestadoresPage() {
             Cadastro e filtros da rede prestadora.
           </p>
         </div>
-        <Button variant="gradient" size="sm" onClick={openNew} className="w-auto shrink-0 sm:size-default">
-          <Plus className="h-4 w-4" /> <span className="hidden xs:inline sm:inline">Novo prestador</span><span className="xs:hidden sm:hidden">Novo</span>
+        <Button variant="gradient" size="sm" onClick={openNew} className="w-auto shrink-0">
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">Novo prestador</span>
+          <span className="sm:hidden">Novo</span>
         </Button>
       </header>
 
