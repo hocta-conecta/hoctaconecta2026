@@ -76,7 +76,7 @@ export function NewPrestadorModal({
       if (especialidadesSel.length) {
         const rows = especialidadesSel.map((eid) => ({
           prestador_id: prestadorId,
-          especialidade_id: eid,
+          especialidade: eid,
         }));
         const { error: eError } = await supabase.from("prestador_especialidades").insert(rows);
         if (eError) throw eError;
