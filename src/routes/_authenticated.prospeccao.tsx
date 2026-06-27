@@ -71,7 +71,7 @@ import {
   EspecialidadeMultiSelect, 
   MunicipioMultiCombobox, 
   UfSingleSelect, 
-  CidadeSingleSelect 
+  CidadeSingleCombobox 
 } from "@/components/municipio-combobox";
 
 export const Route = createFileRoute("/_authenticated/prospeccao")({
@@ -797,7 +797,7 @@ function NewPrestadorModal({
             </div>
             <div className="space-y-2">
               <Label>Cidade-sede *</Label>
-              <CidadeSingleSelect 
+              <CidadeSingleCombobox 
                 uf={ufSede} 
                 value={cidadeSede} 
                 onChange={setCidadeSede} 
