@@ -8,34 +8,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { 
-  MunicipioMultiCombobox, 
-  UfSingleSelect, 
-  CidadeSingleCombobox 
-} from "@/components/municipio-combobox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MunicipioMultiCombobox, UfSingleSelect, CidadeSingleCombobox } from "@/components/municipio-combobox";
 import { EspecialidadeMultiSelect } from "@/components/especialidade-multiselect";
 
-export function NewPrestadorModal({ 
-  open, 
-  onClose, 
-  onSuccess 
-}: { 
-  open: boolean; 
-  onClose: () => void; 
+export function NewPrestadorModal({
+  open,
+  onClose,
+  onSuccess,
+}: {
+  open: boolean;
+  onClose: () => void;
   onSuccess: (id: number) => void;
 }) {
   const qc = useQueryClient();
@@ -53,7 +37,7 @@ export function NewPrestadorModal({
       telefone: "",
       email: "",
       observacoes: "",
-    }
+    },
   });
 
   const save = useMutation({
@@ -75,13 +59,10 @@ export function NewPrestadorModal({
       // 2. Salvar especialidades
       if (especialidadesSel.length) {
         // Busca os nomes das especialidades para salvar
-        const { data: espData } = await supabase
-          .from("especialidades")
-          .select("id, nome")
-          .in("id", especialidadesSel);
+        const { data: espData } = await supabase.from("especialidades").select("id, nome").in("id", especialidadesSel);
 
         const rows = especialidadesSel.map((eid) => {
-          const nome = espData?.find(e => e.id === eid)?.nome || String(eid);
+          const nome = espData?.find((e) => e.id === eid)?.nome || String(eid);
           return {
             prestador_id: prestadorId,
             especialidade_id: eid,
@@ -121,9 +102,12 @@ export function NewPrestadorModal({
         <form onSubmit={form.handleSubmit((v) => save.mutate(v))} className="space-y-4">
           <div className="space-y-2">
             <Label>Razão social *</Label>
-            <Input placeholder="Ex: Hospital Central de Exemplo Ltda" {...form.register("razao_social", { required: true })} />
+            <Input
+              placeholder="Ex: Hospital Central de Exemplo Ltda"
+              {...form.register("razao_social", { required: true })}
+            />
           </div>
-          
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Nome fantasia</Label>
@@ -150,9 +134,12 @@ export function NewPrestadorModal({
                   { value: "servico_imagem", label: "Serviço de Imagem" },
                   { value: "policlinica", label: "Policlínica" },
                   { value: "hospital", label: "Hospital" },
+                  { value: "Servicos de Anestesiologia", label: "Servicos de Anestesiologia" },
                   { value: "outro", label: "Outro" },
                 ].map((t) => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -166,21 +153,17 @@ export function NewPrestadorModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>UF *</Label>
-              <UfSingleSelect 
-                value={ufSede} 
+              <UfSingleSelect
+                value={ufSede}
                 onChange={(val) => {
                   setUfSede(val);
                   setCidadeSede(""); // Limpa cidade ao trocar UF
-                }} 
+                }}
               />
             </div>
             <div className="space-y-2">
               <Label>Cidade-sede *</Label>
-              <CidadeSingleCombobox 
-                uf={ufSede} 
-                value={cidadeSede} 
-                onChange={setCidadeSede} 
-              />
+              <CidadeSingleCombobox uf={ufSede} value={cidadeSede} onChange={setCidadeSede} />
             </div>
           </div>
 
@@ -202,11 +185,16 @@ export function NewPrestadorModal({
 
           <div className="space-y-2">
             <Label>Observações</Label>
-            <Textarea placeholder="Informações adicionais, observações ou detalhes importantes..." {...form.register("observacoes")} />
+            <Textarea
+              placeholder="Informações adicionais, observações ou detalhes importantes..."
+              {...form.register("observacoes")}
+            />
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancelar
+            </Button>
             <Button type="submit" disabled={save.isPending}>
               {save.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Cadastrar
