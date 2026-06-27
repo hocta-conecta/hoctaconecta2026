@@ -7,7 +7,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import * as PopoverPrimitive from "@radix-ui/react-popover"; // Importação necessária para o Portal nativo do Radix
 import { cn } from "@/lib/utils";
 
 export type Municipio = {
@@ -245,19 +244,16 @@ export function MunicipioSingleCombobox({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverPrimitive.Portal>
-        <PopoverContent
-          className="w-[--radix-popover-trigger-width] p-0 z-[50]"
-          align="start"
-          side="bottom"
-          sideOffset={4}
-          updatePositionStrategy="always"
-        >
-          <div className="h-[400px]">
-            <MunicipioSearchContent {...contentProps} />
-          </div>
-        </PopoverContent>
-      </PopoverPrimitive.Portal>
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] p-0 z-[100]"
+        align="start"
+        side="bottom"
+        sideOffset={4}
+      >
+        <div className="h-[400px]">
+          <MunicipioSearchContent {...contentProps} />
+        </div>
+      </PopoverContent>
     </Popover>
   );
 }
@@ -339,19 +335,16 @@ export function MunicipioMultiCombobox({
       ) : (
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-          <PopoverPrimitive.Portal>
-            <PopoverContent
-              className="w-[--radix-popover-trigger-width] p-0 z-[50]"
-              align="start"
-              side="bottom"
-              sideOffset={4}
-              updatePositionStrategy="always"
-            >
-              <div className="h-[400px]">
-                <MunicipioSearchContent {...contentProps} />
-              </div>
-            </PopoverContent>
-          </PopoverPrimitive.Portal>
+          <PopoverContent
+            className="w-[--radix-popover-trigger-width] p-0 z-[100]"
+            align="start"
+            side="bottom"
+            sideOffset={4}
+          >
+            <div className="h-[400px]">
+              <MunicipioSearchContent {...contentProps} />
+            </div>
+          </PopoverContent>
         </Popover>
       )}
 
@@ -419,41 +412,38 @@ export function UfSingleSelect({ value, onChange }: { value: string; onChange: (
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverPrimitive.Portal>
-        <PopoverContent
-          className="w-[--radix-popover-trigger-width] p-0 z-[50]"
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          updatePositionStrategy="always"
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] p-0 z-[100]"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        <Command
+          className="max-h-[300px] flex flex-col"
+          filter={(value, search) => {
+            if (value.toLowerCase().includes(search.toLowerCase())) return 1;
+            return 0;
+          }}
         >
-          <Command
-            className="max-h-[300px] flex flex-col"
-            filter={(value, search) => {
-              if (value.toLowerCase().includes(search.toLowerCase())) return 1;
-              return 0;
-            }}
-          >
-            <CommandInput placeholder="Buscar UF..." />
-            <CommandList className="overflow-y-auto">
-              <CommandEmpty>Nenhuma UF encontrada.</CommandEmpty>
-              <CommandGroup>
-                {ufs.map((uf) => (
-                  <CommandItem
-                    key={uf}
-                    value={uf}
-                    onSelect={() => {
-                      onChange(uf);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check className={cn("mr-2 h-4 w-4", value === uf ? "opacity-100" : "opacity-0")} />
-                    {uf}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </PopoverPrimitive.Portal>
+          <CommandInput placeholder="Buscar UF..." />
+          <CommandList className="overflow-y-auto">
+            <CommandEmpty>Nenhuma UF encontrada.</CommandEmpty>
+            <CommandGroup>
+              {ufs.map((uf) => (
+                <CommandItem
+                  key={uf}
+                  value={uf}
+                  onSelect={() => {
+                    onChange(uf);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn("mr-2 h-4 w-4", value === uf ? "opacity-100" : "opacity-0")} />
+                  {uf}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
     </Popover>
   );
 }
@@ -497,36 +487,33 @@ export function CidadeSingleCombobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverPrimitive.Portal>
-        <PopoverContent
-          className="w-[--radix-popover-trigger-width] p-0 z-[50]"
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          updatePositionStrategy="always"
-        >
-          <Command shouldFilter={false} className="max-h-[300px] flex flex-col">
-            <CommandInput placeholder="Buscar cidade..." onValueChange={setSearchTerm} />
-            <CommandList className="overflow-y-auto">
-              {isLoading && <div className="p-2 text-xs text-muted-foreground">Carregando...</div>}
-              {!isLoading && cidades.length === 0 && <CommandEmpty>Nenhuma cidade encontrada.</CommandEmpty>}
-              <CommandGroup>
-                {cidades.map((cidade) => (
-                  <CommandItem
-                    key={cidade}
-                    value={cidade}
-                    onSelect={() => {
-                      onChange(cidade);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check className={cn("mr-2 h-4 w-4", value === cidade ? "opacity-100" : "opacity-0")} />
-                    {cidade}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </PopoverPrimitive.Portal>
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] p-0 z-[100]"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        <Command shouldFilter={false} className="max-h-[300px] flex flex-col">
+          <CommandInput placeholder="Buscar cidade..." onValueChange={setSearchTerm} />
+          <CommandList className="overflow-y-auto">
+            {isLoading && <div className="p-2 text-xs text-muted-foreground">Carregando...</div>}
+            {!isLoading && cidades.length === 0 && <CommandEmpty>Nenhuma cidade encontrada.</CommandEmpty>}
+            <CommandGroup>
+              {cidades.map((cidade) => (
+                <CommandItem
+                  key={cidade}
+                  value={cidade}
+                  onSelect={() => {
+                    onChange(cidade);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn("mr-2 h-4 w-4", value === cidade ? "opacity-100" : "opacity-0")} />
+                  {cidade}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
     </Popover>
   );
 }
