@@ -417,25 +417,26 @@ export function UfSingleSelect({
   value: string;
   onChange: (uf: string) => void;
 }) {
-  // Usamos a lista estática para garantir que todas as 27 UFs apareçam sem limites do banco
+  // Lista estática garante 26 UFs + DF
   const ufs = BR_UFS;
+  const [open, setOpen] = React.useState(false);
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           role="combobox"
-          className="w-full justify-between font-normal"
+          className="w-full justify-between font-normal h-10"
         >
           {value || "Selecione a UF..."}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
         <Command>
           <CommandInput placeholder="Buscar UF..." />
-          <CommandList>
+          <CommandList className="max-h-72 overscroll-contain touch-pan-y">
             <CommandEmpty>Nenhuma UF encontrada.</CommandEmpty>
             <CommandGroup>
               {ufs.map((uf) => (
@@ -444,6 +445,7 @@ export function UfSingleSelect({
                   value={uf}
                   onSelect={() => {
                     onChange(uf);
+                    setOpen(false);
                   }}
                 >
                   <Check
@@ -477,6 +479,7 @@ export function CidadeSingleCombobox({
 }) {
   const [searchTerm, setSearchTerm] = React.useState("");
   const debouncedSearch = useDebounce(searchTerm, 300);
+  const [open, setOpen] = React.useState(false);
 
   const { data: cidades = [], isLoading } = useQuery({
     queryKey: ["cidades-search", uf, debouncedSearch],
@@ -501,25 +504,25 @@ export function CidadeSingleCombobox({
   });
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           role="combobox"
-          className="w-full justify-between font-normal"
+          className="w-full justify-between font-normal h-10"
           disabled={!uf}
         >
           {value || (uf ? "Selecione a cidade..." : "Selecione a UF primeiro")}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
         <Command shouldFilter={false}>
           <CommandInput 
             placeholder="Buscar cidade..." 
             onValueChange={setSearchTerm}
           />
-          <CommandList>
+          <CommandList className="max-h-72 overscroll-contain touch-pan-y">
             {isLoading && <div className="p-2 text-xs text-muted-foreground">Carregando...</div>}
             {!isLoading && cidades.length === 0 && <CommandEmpty>Nenhuma cidade encontrada.</CommandEmpty>}
             <CommandGroup>
@@ -529,6 +532,7 @@ export function CidadeSingleCombobox({
                   value={cidade}
                   onSelect={() => {
                     onChange(cidade);
+                    setOpen(false);
                   }}
                 >
                   <Check
