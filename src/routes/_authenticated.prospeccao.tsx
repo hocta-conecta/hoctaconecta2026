@@ -329,7 +329,7 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-xl border border-border bg-muted/40 p-3 min-h-[200px] transition-colors ${
+      className={`shrink-0 w-[78vw] max-w-xs sm:w-auto sm:max-w-none snap-start rounded-xl border border-border bg-muted/40 p-3 min-h-[160px] transition-colors ${
         isOver ? "ring-2 ring-primary bg-accent/40" : ""
       }`}
     >
@@ -455,6 +455,7 @@ function ProspeccaoForm({
 }) {
   const qc = useQueryClient();
   const [showNewPrestador, setShowNewPrestador] = React.useState(false);
+  const [prestadorOpen, setPrestadorOpen] = React.useState(false);
   const form = useForm<FormValues>({
     defaultValues: editing
       ? {
@@ -533,12 +534,12 @@ function ProspeccaoForm({
                 <Plus className="h-3 w-3 mr-1" /> Novo prestador
               </Button>
             </div>
-            <Popover>
+            <Popover open={prestadorOpen} onOpenChange={setPrestadorOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   role="combobox"
-                  className="w-full justify-between font-normal"
+                  className="w-full justify-between font-normal h-10"
                 >
                   {form.watch("prestador_id")
                     ? prestadores.find((p) => String(p.id) === form.watch("prestador_id"))?.razao_social
@@ -546,10 +547,10 @@ function ProspeccaoForm({
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                 <Command>
                   <CommandInput placeholder="Buscar prestador..." />
-                  <CommandList>
+                  <CommandList className="max-h-72 overscroll-contain touch-pan-y">
                     <CommandEmpty>Nenhum prestador encontrado.</CommandEmpty>
                     <CommandGroup>
                       {prestadores.map((p) => (
@@ -558,6 +559,7 @@ function ProspeccaoForm({
                           value={p.razao_social}
                           onSelect={() => {
                             form.setValue("prestador_id", String(p.id));
+                            setPrestadorOpen(false);
                           }}
                         >
                           <Check
