@@ -156,10 +156,13 @@ export function ProspeccaoForm({
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                <Command>
+              <PopoverContent 
+                className="w-[--radix-popover-trigger-width] p-0 overflow-hidden" 
+                onOpenAutoFocus={(e) => e.preventDefault()}
+              >
+                <Command className="flex flex-col h-full max-h-[300px]">
                   <CommandInput placeholder="Buscar prestador..." />
-                  <CommandList className="max-h-72 overscroll-contain touch-pan-y">
+                  <CommandList className="flex-1 overflow-y-auto overscroll-contain touch-pan-y scrollbar-thin scrollbar-thumb-muted-foreground/20">
                     <CommandEmpty>Nenhum prestador encontrado.</CommandEmpty>
                     <CommandGroup>
                       {prestadores.map((p) => (
