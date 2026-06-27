@@ -44,6 +44,7 @@ type DashboardStats = {
   credenciados: number;
 
   porEspecialidade: { nome: string; credenciados: number }[];
+  prospeccaoPorEspecialidade: { nome: string; count: number }[];
   porEtapa: { etapa: string; count: number }[];
   credenciamentosPorMes: { mes: string; count: number }[];
   inativosRecentes: { prestador: string; projeto: string; dias: number }[];
@@ -235,7 +236,7 @@ async function loadDashboardStats(): Promise<DashboardStats> {
     .slice(0, 6)
     .map(([municipio, total]) => ({ municipio, total }));
 
-  // Cobertura por especialidade
+  // Cobertura por especialidade (Credenciados)
   const espMap: Record<string, number> = {};
   for (const p of especialidadesRes.data ?? []) {
     const esp = (p.prestadores as any)?.especialidade;
@@ -245,6 +246,16 @@ async function loadDashboardStats(): Promise<DashboardStats> {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 8)
     .map(([nome, credenciados]) => ({ nome, credenciados }));
+
+  // Distribuição de Prospecção por Especialidade
+  const prospEspMap: Record<string, number> = {};
+  for (const p of prestadoresAtivosRes.data ?? []) {
+    const esp = (p.prestadores as any)?.especialidade || "Não informada";
+    prospEspMap[esp] = (prospEspMap[esp] ?? 0) + 1;
+  }
+  const prospeccaoPorEspecialidade = Object.entries(prospEspMap)
+    .sort((a, b) => b[1] - a[1])
+    .map(([nome, count]) => ({ nome, count }));
 
   // Credenciamentos por mês
   const mesMap: Record<number, number> = {};
@@ -308,6 +319,7 @@ async function loadDashboardStats(): Promise<DashboardStats> {
     taxaConversao: taxa,
     credenciados: totalCred,
     porEspecialidade,
+    prospeccaoPorEspecialidade,
     porEtapa,
     credenciamentosPorMes,
     inativosRecentes,
@@ -647,43 +659,74 @@ function DashboardPage() {
             </Card>
           </div>
 
-          {/* Lista Prestadores Ativos */}
-          <Card className="border-none shadow-md">
-            <CardHeader>
-              <CardTitle>Prestadores em Prospecção</CardTitle>
-              <CardDescription>Acompanhamento de negociações em curso</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {data?.prestadoresAtivos.length === 0 ? (
-                <EmptyState mensagem="Nenhuma prospecção ativa no momento." />
-              ) : (
-                <div className="overflow-x-auto -mx-6 px-6">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-muted-foreground border-b border-muted/50">
-                        <th className="text-left py-3 px-3 font-semibold uppercase tracking-wider text-[10px]">Prestador</th>
-                        <th className="text-left py-3 px-3 font-semibold uppercase tracking-wider text-[10px]">Especialidade</th>
-                        <th className="text-left py-3 px-3 font-semibold uppercase tracking-wider text-[10px]">Etapa</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-muted/30">
-                      {data?.prestadoresAtivos.map((r, i) => (
-                        <tr key={i} className="group hover:bg-primary/5 transition-colors">
-                          <td className="py-4 px-3 font-medium text-foreground min-w-[200px]">{r.nome}</td>
-                          <td className="py-4 px-3 text-muted-foreground">{r.especialidade}</td>
-                          <td className="py-4 px-3">
-                            <Badge variant="outline" className="font-semibold border-primary/20 bg-primary/5 text-primary">
-                              {r.etapa}
-                            </Badge>
-                          </td>
+          {/* Gráfico de Distribuição por Especialidade */}
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Card className="lg:col-span-1 border-none shadow-md overflow-hidden">
+              <CardHeader className="bg-gradient-to-br from-primary/5 to-blue-500/5 pb-2">
+                <CardTitle className="text-lg">Foco por Especialidade</CardTitle>
+                <CardDescription>Onde estão seus prospectos</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4">
+                {data?.prospeccaoPorEspecialidade.length === 0 ? (
+                  <EmptyState mensagem="Sem dados de especialidade." />
+                ) : (
+                  <div className="space-y-4">
+                    {data?.prospeccaoPorEspecialidade.slice(0, 5).map((item, idx) => (
+                      <div key={item.nome} className="flex flex-col gap-1">
+                        <div className="flex justify-between text-xs font-medium">
+                          <span className="truncate max-w-[150px]">{item.nome}</span>
+                          <span className="text-primary font-bold">{item.count}</span>
+                        </div>
+                        <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-primary rounded-full" 
+                            style={{ width: `${(item.count / data!.prospeccaoPorEspecialidade[0].count) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="lg:col-span-2 border-none shadow-md">
+              <CardHeader>
+                <CardTitle>Prestadores em Prospecção</CardTitle>
+                <CardDescription>Acompanhamento de negociações em curso</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {data?.prestadoresAtivos.length === 0 ? (
+                  <EmptyState mensagem="Nenhuma prospecção ativa no momento." />
+                ) : (
+                  <div className="overflow-x-auto -mx-6 px-6">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-muted-foreground border-b border-muted/50">
+                          <th className="text-left py-3 px-3 font-semibold uppercase tracking-wider text-[10px]">Prestador</th>
+                          <th className="text-left py-3 px-3 font-semibold uppercase tracking-wider text-[10px]">Especialidade</th>
+                          <th className="text-left py-3 px-3 font-semibold uppercase tracking-wider text-[10px]">Etapa</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                      </thead>
+                      <tbody className="divide-y divide-muted/30">
+                        {data?.prestadoresAtivos.slice(0, 6).map((r, i) => (
+                          <tr key={i} className="group hover:bg-primary/5 transition-colors">
+                            <td className="py-4 px-3 font-medium text-foreground truncate max-w-[180px]">{r.nome}</td>
+                            <td className="py-4 px-3 text-muted-foreground truncate max-w-[120px]">{r.especialidade}</td>
+                            <td className="py-4 px-3">
+                              <Badge variant="outline" className="text-[10px] font-bold border-primary/20 bg-primary/5 text-primary whitespace-nowrap">
+                                {r.etapa}
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* ABA 3: CREDENCIAMENTO */}
