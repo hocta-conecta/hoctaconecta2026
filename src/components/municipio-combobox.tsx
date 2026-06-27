@@ -332,7 +332,7 @@ export function MunicipioMultiCombobox({
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>{trigger}</PopoverTrigger>
           <PopoverContent
-            className="w-[--radix-popover-trigger-width] p-0 z-[100]"
+            className="w-[--radix-popover-trigger-width] p-0"
             align="start"
             side="bottom"
             sideOffset={4}
@@ -408,7 +408,7 @@ export function UfSingleSelect({ value, onChange }: { value: string; onChange: (
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[--radix-popover-trigger-width] p-0 z-[100]"
+        className="w-[--radix-popover-trigger-width] p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <div className="flex flex-col max-h-[300px]">
@@ -493,7 +493,7 @@ export function CidadeSingleCombobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[--radix-popover-trigger-width] p-0 z-[100]"
+        className="w-[--radix-popover-trigger-width] p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <div className="flex flex-col max-h-[300px]">
