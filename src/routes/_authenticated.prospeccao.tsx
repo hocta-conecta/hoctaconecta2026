@@ -274,7 +274,7 @@ function ProspeccaoPage() {
         </div>
       ) : (
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-          <div className="flex flex-col md:flex-row gap-3 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+          <div className="flex flex-col md:flex-row gap-3 flex-wrap pb-4">
             {PROSPECCAO_ETAPAS.map((col) => (
               <KanbanColumn
                 key={col.value}
@@ -340,7 +340,7 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-xl border border-border bg-muted/40 p-3 min-h-[150px] md:min-w-[300px] md:w-[300px] flex-shrink-0 transition-colors ${
+      className={`rounded-xl border border-border bg-muted/40 p-3 min-h-[150px] w-full md:w-[300px] transition-colors ${
         isOver ? "ring-2 ring-primary bg-accent/40" : ""
       }`}
     >
