@@ -162,7 +162,13 @@ export function ProspeccaoForm({
                   className="w-[--radix-popover-trigger-width] p-0" 
                   onOpenAutoFocus={(e) => e.preventDefault()}
                 >
-                  <Command className="max-h-[300px] flex flex-col">
+                  <Command 
+                    className="max-h-[300px] flex flex-col"
+                    filter={(value, search) => {
+                      if (value.toLowerCase().includes(search.toLowerCase())) return 1;
+                      return 0;
+                    }}
+                  >
                     <CommandInput placeholder="Buscar prestador..." />
                     <CommandList className="overflow-y-auto">
                       <CommandEmpty>Nenhum prestador encontrado.</CommandEmpty>
@@ -196,41 +202,119 @@ export function ProspeccaoForm({
 
             <div className="space-y-2">
               <Label>Projeto</Label>
-              <Select
-                value={form.watch("projeto_id")}
-                onValueChange={(v) => form.setValue("projeto_id", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Nenhum" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projetos.map((p) => (
-                    <SelectItem key={p.id} value={String(p.id)}>
-                      {p.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between font-normal"
+                  >
+                    {form.watch("projeto_id")
+                      ? projetos.find((p) => String(p.id) === form.watch("projeto_id"))?.nome
+                      : "Selecione o projeto..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent 
+                  className="w-[--radix-popover-trigger-width] p-0" 
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                >
+                  <Command 
+                    className="max-h-[300px] flex flex-col"
+                    filter={(value, search) => {
+                      if (value.toLowerCase().includes(search.toLowerCase())) return 1;
+                      return 0;
+                    }}
+                  >
+                    <CommandInput placeholder="Buscar projeto..." />
+                    <CommandList className="overflow-y-auto">
+                      <CommandEmpty>Nenhum projeto encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value=""
+                          onSelect={() => form.setValue("projeto_id", "")}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              !form.watch("projeto_id") ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          Nenhum
+                        </CommandItem>
+                        {projetos.map((p) => (
+                          <CommandItem
+                            key={p.id}
+                            value={p.nome}
+                            onSelect={() => form.setValue("projeto_id", String(p.id))}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                form.watch("projeto_id") === String(p.id) ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {p.nome}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Etapa</Label>
-                <Select
-                  value={form.watch("etapa")}
-                  onValueChange={(v) => form.setValue("etapa", v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PROSPECCAO_ETAPAS.map((e) => (
-                      <SelectItem key={e.value} value={e.value}>
-                        {e.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between font-normal"
+                    >
+                      {form.watch("etapa")
+                        ? PROSPECCAO_ETAPAS.find((e) => e.value === form.watch("etapa"))?.label
+                        : "Selecione a etapa..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent 
+                    className="w-[--radix-popover-trigger-width] p-0" 
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                  >
+                    <Command 
+                      className="max-h-[300px] flex flex-col"
+                      filter={(value, search) => {
+                        if (value.toLowerCase().includes(search.toLowerCase())) return 1;
+                        return 0;
+                      }}
+                    >
+                      <CommandInput placeholder="Buscar etapa..." />
+                      <CommandList className="overflow-y-auto">
+                        <CommandEmpty>Nenhuma etapa encontrada.</CommandEmpty>
+                        <CommandGroup>
+                          {PROSPECCAO_ETAPAS.map((e) => (
+                            <CommandItem
+                              key={e.value}
+                              value={e.label}
+                              onSelect={() => form.setValue("etapa", e.value)}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  form.watch("etapa") === e.value ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {e.label}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label>Prioridade</Label>

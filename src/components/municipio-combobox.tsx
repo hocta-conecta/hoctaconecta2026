@@ -433,10 +433,19 @@ export function UfSingleSelect({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
+      <PopoverContent 
+        className="w-[--radix-popover-trigger-width] p-0" 
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        <Command 
+          className="max-h-[300px] flex flex-col"
+          filter={(value, search) => {
+            if (value.toLowerCase().includes(search.toLowerCase())) return 1;
+            return 0;
+          }}
+        >
           <CommandInput placeholder="Buscar UF..." />
-          <CommandList className="max-h-72 overscroll-contain touch-pan-y">
+          <CommandList className="overflow-y-auto">
             <CommandEmpty>Nenhuma UF encontrada.</CommandEmpty>
             <CommandGroup>
               {ufs.map((uf) => (
@@ -516,13 +525,16 @@ export function CidadeSingleCombobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command shouldFilter={false}>
+      <PopoverContent 
+        className="w-[--radix-popover-trigger-width] p-0"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        <Command shouldFilter={false} className="max-h-[300px] flex flex-col">
           <CommandInput 
             placeholder="Buscar cidade..." 
             onValueChange={setSearchTerm}
           />
-          <CommandList className="max-h-72 overscroll-contain touch-pan-y">
+          <CommandList className="overflow-y-auto">
             {isLoading && <div className="p-2 text-xs text-muted-foreground">Carregando...</div>}
             {!isLoading && cidades.length === 0 && <CommandEmpty>Nenhuma cidade encontrada.</CommandEmpty>}
             <CommandGroup>
