@@ -190,7 +190,6 @@ export function MunicipioSingleCombobox({
       variant="outline"
       role="combobox"
       className="w-full justify-between font-normal h-10 px-3"
-      onClick={() => setOpen(true)}
     >
       {selected ? (
         <span className="truncate">
@@ -290,7 +289,6 @@ export function MunicipioMultiCombobox({
       type="button"
       variant="outline"
       className="w-full justify-between font-normal h-10 px-3"
-      onClick={() => setOpen(true)}
     >
       <span className="text-muted-foreground truncate">{placeholder}</span>
       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
