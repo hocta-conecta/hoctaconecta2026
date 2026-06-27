@@ -565,22 +565,39 @@ function DashboardPage() {
                 {data?.porEtapa.length === 0 ? (
                   <EmptyState mensagem="Nenhuma prospecção registrada." />
                 ) : (
-                  <ResponsiveContainer width="100%" height={240} className="sm:!h-[320px]">
-                    <BarChart data={data?.porEtapa} layout="vertical" margin={{ top: 10, right: 30, left: 140, bottom: 10 }}>
+                  <ResponsiveContainer width="100%" height={320} className="sm:!h-[380px]">
+                    <BarChart 
+                      data={data?.porEtapa} 
+                      layout="vertical" 
+                      margin={{ top: 5, right: 40, left: 10, bottom: 5 }}
+                    >
                       <defs>
                         <linearGradient id="colorFunil" x1="0" y1="0" x2="1" y2="0">
                           <stop offset="0%" stopColor="#1558a8" stopOpacity={0.8} />
                           <stop offset="100%" stopColor="#2A95B6" stopOpacity={0.6} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" opacity={0.15} stroke="#e0e0e0" />
-                      <XAxis type="number" tick={{ fontSize: 11 }} />
-                      <YAxis dataKey="etapa" type="category" tick={{ fontSize: 10 }} />
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: "#fff", border: "1px solid #e0e0e0", borderRadius: "8px" }}
-                        cursor={{ fill: "rgba(21, 88, 168, 0.1)" }}
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.1} horizontal={false} />
+                      <XAxis type="number" hide />
+                      <YAxis 
+                        dataKey="etapa" 
+                        type="category" 
+                        tick={{ fontSize: 12, fontWeight: 500, fill: "#4b5563" }}
+                        width={150}
+                        axisLine={false}
+                        tickLine={false}
                       />
-                      <Bar dataKey="count" fill="url(#colorFunil)" radius={[0, 8, 8, 0]} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: "12px", boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)" }}
+                        cursor={{ fill: "rgba(21, 88, 168, 0.05)" }}
+                      />
+                      <Bar 
+                        dataKey="count" 
+                        fill="url(#colorFunil)" 
+                        radius={[0, 6, 6, 0]} 
+                        barSize={32}
+                        label={{ position: 'right', fill: '#1558a8', fontSize: 13, fontWeight: 'bold', offset: 10 }}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
