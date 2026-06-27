@@ -9,17 +9,15 @@ export const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
 >(({ className, align = "start", sideOffset = 4, ...props }, ref) => (
-  <PopoverPrimitive.Portal>
-    <PopoverPrimitive.Content
-      ref={ref}
-      align={align}
-      sideOffset={sideOffset}
-      className={cn(
-        "z-50 w-72 rounded-md border border-border bg-popover text-popover-foreground p-0 shadow-md outline-none",
-        className,
-      )}
-      {...props}
-    />
-  </PopoverPrimitive.Portal>
+  <PopoverPrimitive.Content
+    ref={ref}
+    align={align}
+    sideOffset={sideOffset}
+    className={cn(
+      "z-50 w-72 rounded-md border border-border bg-popover text-popover-foreground p-0 shadow-md outline-none",
+      className,
+    )}
+    {...props}
+  />
 ));
 PopoverContent.displayName = "PopoverContent";

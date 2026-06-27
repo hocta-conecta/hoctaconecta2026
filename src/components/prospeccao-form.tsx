@@ -119,138 +119,146 @@ export function ProspeccaoForm({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-visible flex flex-col">
         <DialogHeader>
           <DialogTitle>{editing ? "Editar prospecção" : "Nova prospecção"}</DialogTitle>
         </DialogHeader>
-        <form
-          onSubmit={form.handleSubmit((v) => {
-            if (!v.prestador_id) return toast.error("Selecione um prestador");
-            save.mutate(v);
-          })}
-          className="space-y-4"
-        >
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Prestador *</Label>
-              <Button 
-                type="button" 
-                variant="link" 
-                size="sm" 
-                className="h-auto p-0 text-xs"
-                onClick={() => setShowNewPrestador(true)}
-              >
-                <Plus className="h-3 w-3 mr-1" /> Novo prestador
-              </Button>
-            </div>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className="w-full justify-between font-normal"
-                >
-                  {form.watch("prestador_id")
-                    ? prestadores.find((p) => String(p.id) === form.watch("prestador_id"))?.razao_social
-                    : "Selecione o prestador..."}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent 
-                className="w-[--radix-popover-trigger-width] p-0" 
-                onOpenAutoFocus={(e) => e.preventDefault()}
-              >
-                <Command>
-                  <CommandInput placeholder="Buscar prestador..." />
-                  <CommandList>
-                    <CommandEmpty>Nenhum prestador encontrado.</CommandEmpty>
-                    <CommandGroup>
-                      {prestadores.map((p) => (
-                        <CommandItem
-                          key={p.id}
-                          value={p.razao_social}
-                          onSelect={() => {
-                            form.setValue("prestador_id", String(p.id));
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              form.watch("prestador_id") === String(p.id) ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          <div className="flex flex-col">
-                            <span>{p.razao_social}</span>
-                            <span className="text-[10px] text-muted-foreground">{p.cidade}/{p.uf}</span>
-                          </div>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="space-y-2">
-            <Label>Projeto</Label>
-            <Select
-              value={form.watch("projeto_id")}
-              onValueChange={(v) => form.setValue("projeto_id", v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Nenhum" />
-              </SelectTrigger>
-              <SelectContent>
-                {projetos.map((p) => (
-                  <SelectItem key={p.id} value={String(p.id)}>
-                    {p.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        
+        <div className="flex-1 overflow-y-auto px-1">
+          <form
+            onSubmit={form.handleSubmit((v) => {
+              if (!v.prestador_id) return toast.error("Selecione um prestador");
+              save.mutate(v);
+            })}
+            className="space-y-4 py-1"
+          >
             <div className="space-y-2">
-              <Label>Etapa</Label>
+              <div className="flex items-center justify-between">
+                <Label>Prestador *</Label>
+                <Button 
+                  type="button" 
+                  variant="link" 
+                  size="sm" 
+                  className="h-auto p-0 text-xs"
+                  onClick={() => setShowNewPrestador(true)}
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Novo prestador
+                </Button>
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between font-normal"
+                  >
+                    {form.watch("prestador_id")
+                      ? prestadores.find((p) => String(p.id) === form.watch("prestador_id"))?.razao_social
+                      : "Selecione o prestador..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent 
+                  className="w-[--radix-popover-trigger-width] p-0" 
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                >
+                  <Command className="max-h-[300px] flex flex-col">
+                    <CommandInput placeholder="Buscar prestador..." />
+                    <CommandList className="overflow-y-auto">
+                      <CommandEmpty>Nenhum prestador encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {prestadores.map((p) => (
+                          <CommandItem
+                            key={p.id}
+                            value={p.razao_social}
+                            onSelect={() => {
+                              form.setValue("prestador_id", String(p.id));
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                form.watch("prestador_id") === String(p.id) ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <div className="flex flex-col">
+                              <span>{p.razao_social}</span>
+                              <span className="text-[10px] text-muted-foreground">{p.cidade}/{p.uf}</span>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Projeto</Label>
               <Select
-                value={form.watch("etapa")}
-                onValueChange={(v) => form.setValue("etapa", v)}
+                value={form.watch("projeto_id")}
+                onValueChange={(v) => form.setValue("projeto_id", v)}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Nenhum" />
                 </SelectTrigger>
                 <SelectContent>
-                  {PROSPECCAO_ETAPAS.map((e) => (
-                    <SelectItem key={e.value} value={e.value}>
-                      {e.label}
+                  {projetos.map((p) => (
+                    <SelectItem key={p.id} value={String(p.id)}>
+                      {p.nome}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Prioridade</Label>
-              <Input type="number" placeholder="Ex: 1 (Alta), 5 (Baixa)" {...form.register("prioridade")} />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Etapa</Label>
+                <Select
+                  value={form.watch("etapa")}
+                  onValueChange={(v) => form.setValue("etapa", v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROSPECCAO_ETAPAS.map((e) => (
+                      <SelectItem key={e.value} value={e.value}>
+                        {e.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Prioridade</Label>
+                <Input type="number" placeholder="Ex: 1 (Alta), 5 (Baixa)" {...form.register("prioridade")} />
+              </div>
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Data de início</Label>
-            <Input type="date" placeholder="Data de início" {...form.register("data_inicio")} />
-          </div>
-          <div className="space-y-2">
-            <Label>Observações</Label>
-            <Textarea placeholder="Informações adicionais, observações ou detalhes importantes..." {...form.register("observacoes")} />
-          </div>
-          <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={save.isPending}>
-              {save.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {editing ? "Salvar" : "Criar"}
-            </Button>
-          </DialogFooter>
-        </form>
+
+            <div className="space-y-2">
+              <Label>Data de início</Label>
+              <Input type="date" placeholder="Data de início" {...form.register("data_inicio")} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Observações</Label>
+              <Textarea placeholder="Informações adicionais, observações ou detalhes importantes..." {...form.register("observacoes")} />
+            </div>
+
+            <DialogFooter className="gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={save.isPending}>
+                {save.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {editing ? "Salvar" : "Criar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </div>
 
         {showNewPrestador && (
           <NewPrestadorModal 
