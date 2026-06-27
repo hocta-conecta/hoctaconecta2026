@@ -133,3 +133,16 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
+
+@layer base {
+  [data-radix-popper-content-wrapper] {
+    z-index: 100 !important;
+    pointer-events: auto !important;
+  }
+  
+  /* Garante que elementos com overflow dentro de portais rolem */
+  [role="dialog"], [role="menu"], [role="listbox"], .bg-popover {
+    pointer-events: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+}

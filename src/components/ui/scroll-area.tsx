@@ -7,7 +7,10 @@ const ScrollArea = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("overflow-y-auto overscroll-contain touch-pan-y", className)}
+    className={cn("overflow-y-auto overscroll-contain touch-pan-y pointer-events-auto scrollbar-thin", className)}
+    onWheel={(e) => e.stopPropagation()}
+    onTouchStart={(e) => e.stopPropagation()}
+    onTouchMove={(e) => e.stopPropagation()}
     {...props}
   >
     {children}
