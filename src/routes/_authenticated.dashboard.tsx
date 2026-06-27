@@ -406,7 +406,7 @@ function DashboardPage() {
                 {data?.porEspecialidade.length === 0 ? (
                   <EmptyState mensagem="Nenhum credenciado registrado ainda." />
                 ) : (
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ResponsiveContainer width="100%" height={220} className="sm:!h-[300px]">
                     <BarChart data={data?.porEspecialidade}>
                       <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                       <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
@@ -456,7 +456,7 @@ function DashboardPage() {
                 {data?.realizadoVsMeta.length === 0 ? (
                   <EmptyState mensagem="Nenhuma meta cadastrada ainda. Abra um projeto e use a aba Metas." />
                 ) : (
-                  <ResponsiveContainer width="100%" height={320}>
+                  <ResponsiveContainer width="100%" height={240} className="sm:!h-[320px]">
                     <BarChart data={data?.realizadoVsMeta}>
                       <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                       <XAxis dataKey="especialidade" tick={{ fontSize: 10 }} angle={-15} textAnchor="end" height={60} />
@@ -517,7 +517,7 @@ function DashboardPage() {
                 {data?.porEtapa.length === 0 ? (
                   <EmptyState mensagem="Nenhuma prospecção registrada." />
                 ) : (
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ResponsiveContainer width="100%" height={220} className="sm:!h-[300px]">
                     <BarChart data={data?.porEtapa} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                       <XAxis type="number" tick={{ fontSize: 11 }} />
@@ -610,7 +610,7 @@ function DashboardPage() {
                 {data?.credenciamentosPorMes.every((m) => m.count === 0) ? (
                   <EmptyState mensagem="Nenhum credenciamento registrado este ano." />
                 ) : (
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ResponsiveContainer width="100%" height={220} className="sm:!h-[300px]">
                     <AreaChart data={data?.credenciamentosPorMes}>
                       <defs>
                         <linearGradient id="colorCred" x1="0" y1="0" x2="0" y2="1">
