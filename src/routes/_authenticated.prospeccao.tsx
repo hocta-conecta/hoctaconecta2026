@@ -157,6 +157,7 @@ function ProspeccaoPage() {
   const [editing, setEditing] = React.useState<Prospeccao | null>(null);
   const [detailsId, setDetailsId] = React.useState<number | null>(null);
   const [activeId, setActiveId] = React.useState<number | null>(null);
+  const [search, setSearch] = React.useState("");
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -217,19 +218,48 @@ function ProspeccaoPage() {
 
   const activeCard = data.find((p) => p.id === activeId);
 
+  const filtered = React.useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return data;
+    return data.filter((p) => {
+      const haystack = [
+        p.prestadores?.razao_social,
+        p.prestadores?.cidade,
+        p.prestadores?.uf,
+        p.projetos?.nome,
+        p.observacoes,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [data, search]);
+
   return (
     <div className="space-y-6">
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:flex-wrap sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-3xl font-bold tracking-tight">Funil de Prospecção</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-xl sm:text-3xl font-bold tracking-tight truncate">Funil de Prospecção</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             Arraste os cards entre as etapas do funil.
           </p>
         </div>
-        <Button variant="gradient" onClick={openNew} disabled={prestadores.length === 0}>
-          <Plus /> Nova prospecção
+        <Button variant="gradient" size="sm" onClick={openNew} disabled={prestadores.length === 0} className="shrink-0">
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">Nova prospecção</span>
+          <span className="sm:hidden">Nova</span>
         </Button>
       </header>
+
+      <div className="relative">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por nome, cidade, projeto..."
+          className="pl-3"
+        />
+      </div>
 
       {isLoading ? (
         <div className="flex items-center gap-2 text-muted-foreground py-8">
@@ -237,13 +267,13 @@ function ProspeccaoPage() {
         </div>
       ) : (
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          <div className="flex sm:grid gap-3 overflow-x-auto sm:overflow-visible snap-x snap-mandatory -mx-3 px-3 pb-2 sm:mx-0 sm:px-0 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 overscroll-x-contain">
             {PROSPECCAO_ETAPAS.map((col) => (
               <KanbanColumn
                 key={col.value}
                 id={col.value}
                 title={col.label}
-                items={data.filter((p) => p.etapa === col.value)}
+                items={filtered.filter((p) => p.etapa === col.value)}
                 onEdit={openEdit}
                 onDetails={(id) => setDetailsId(id)}
                 onRemove={(id) => {
