@@ -216,29 +216,11 @@ export function MunicipioSingleCombobox({
     debouncedSearch,
   };
 
-  if (isMobile) {
-    return (
-      <>
-        {trigger}
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className="p-0 sm:max-w-lg h-[90vh] sm:h-auto flex flex-col overflow-hidden top-[5vh] translate-y-0 z-[150]">
-            <DialogHeader className="p-4 border-b">
-              <DialogTitle>Buscar Município</DialogTitle>
-            </DialogHeader>
-            <div className="flex-1 overflow-hidden">
-              <MunicipioSearchContent {...contentProps} />
-            </div>
-          </DialogContent>
-        </Dialog>
-      </>
-    );
-  }
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent
-        className="w-[--radix-popover-trigger-width] p-0 z-[100]"
+        className="w-[--radix-popover-trigger-width] p-0"
         align="start"
         side="bottom"
         sideOffset={4}
@@ -312,33 +294,17 @@ export function MunicipioMultiCombobox({
 
   return (
     <div className="space-y-2">
-      {isMobile ? (
-        <>
-          {trigger}
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent className="p-0 sm:max-w-lg h-[90vh] sm:h-auto flex flex-col overflow-hidden top-[5vh] translate-y-0 z-[150]">
-              <DialogHeader className="p-4 border-b">
-                <DialogTitle>Adicionar Municípios</DialogTitle>
-              </DialogHeader>
-              <div className="flex-1 overflow-hidden">
-                <MunicipioSearchContent {...contentProps} />
-              </div>
-            </DialogContent>
-          </Dialog>
-        </>
-      ) : (
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-          <PopoverContent
-            className="w-[--radix-popover-trigger-width] p-0"
-            align="start"
-            side="bottom"
-            sideOffset={4}
-          >
-            <MunicipioSearchContent {...contentProps} />
-          </PopoverContent>
-        </Popover>
-      )}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <PopoverContent
+          className="w-[--radix-popover-trigger-width] p-0"
+          align="start"
+          side="bottom"
+          sideOffset={4}
+        >
+          <MunicipioSearchContent {...contentProps} />
+        </PopoverContent>
+      </Popover>
 
       {selectedMunicipios && selectedMunicipios.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
