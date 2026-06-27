@@ -7,19 +7,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const INTERACAO_TIPOS = [
   { value: "telefone", label: "Telefone", icon: Phone },
@@ -76,10 +65,10 @@ export function ProspeccaoDetailsDialog({
       // 1. Atualiza status para credenciado e define data de conversão
       const { error } = await supabase
         .from("prospeccoes")
-        .update({ 
-          etapa: "credenciado", 
+        .update({
+          etapa: "credenciado",
           convertido_em: new Date().toISOString(),
-          atualizado_em: new Date().toISOString()
+          atualizado_em: new Date().toISOString(),
         })
         .eq("id", prospeccaoId);
       if (error) throw error;
@@ -91,15 +80,15 @@ export function ProspeccaoDetailsDialog({
           .from("projeto_municipios")
           .select("municipio_codigo")
           .eq("projeto_id", prospeccao.projeto_id);
-        
+
         if (projMun && projMun.length > 0) {
           const rows = projMun.map((m: any) => ({
             prestador_id: prospeccao.prestador_id,
-            municipio_codigo: m.municipio_codigo
+            municipio_codigo: m.municipio_codigo,
           }));
-          
+
           // Insere vínculos (ignora duplicados se houver)
-          await supabase.from("prestador_municipios").upsert(rows, { onConflict: 'prestador_id,municipio_codigo' });
+          await supabase.from("prestador_municipios").upsert(rows, { onConflict: "prestador_id,municipio_codigo" });
         }
       }
     },
@@ -127,7 +116,9 @@ export function ProspeccaoDetailsDialog({
               <Badge variant="outline">{prospeccao.projetos?.nome || "Sem projeto"}</Badge>
               <Badge>{prospeccao.etapa}</Badge>
               {prospeccao.convertido_em && (
-                <Badge variant="success">Credenciado em {new Date(prospeccao.convertido_em).toLocaleDateString()}</Badge>
+                <Badge variant="success">
+                  Credenciado em {new Date(prospeccao.convertido_em).toLocaleDateString()}
+                </Badge>
               )}
             </div>
           </div>
@@ -148,9 +139,7 @@ export function ProspeccaoDetailsDialog({
                   <div key={i.id} className="text-sm border-l-2 border-primary/30 pl-3 py-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-medium capitalize">{i.tipo}</span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {new Date(i.data).toLocaleString()}
-                      </span>
+                      <span className="text-[10px] text-muted-foreground">{new Date(i.data).toLocaleString()}</span>
                     </div>
                     <p className="text-muted-foreground text-xs">{i.observacao}</p>
                   </div>
@@ -198,8 +187,8 @@ export function ProspeccaoDetailsDialog({
 
           {!prospeccao?.convertido_em && (
             <section className="pt-4 border-t border-border flex justify-end">
-              <Button 
-                variant="success" 
+              <Button
+                variant="success"
                 onClick={() => {
                   if (confirm("Confirmar credenciamento deste prestador?")) converter.mutate();
                 }}
