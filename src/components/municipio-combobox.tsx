@@ -3,10 +3,33 @@ import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronsUpDown, MapPin, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 export type Municipio = {
@@ -78,7 +101,10 @@ async function searchMunicipios(searchTerm: string): Promise<Municipio[]> {
 async function fetchMunicipiosByIds(ids: number[]): Promise<Municipio[]> {
   if (ids.length === 0) return [];
 
-  const { data, error } = await supabase.from("municipios").select("codigo_ibge, nome, uf").in("codigo_ibge", ids);
+  const { data, error } = await supabase
+    .from("municipios")
+    .select("codigo_ibge, nome, uf")
+    .in("codigo_ibge", ids);
 
   if (error) throw error;
   return (data ?? []) as Municipio[];
@@ -117,8 +143,8 @@ function MunicipioSearchContent({
 
   return (
     <Command shouldFilter={false} className="flex h-full flex-col overflow-hidden">
-      <CommandInput
-        placeholder={isLoading ? "Buscando..." : "Digite pelo menos 2 letras..."}
+      <CommandInput 
+        placeholder={isLoading ? "Buscando..." : "Digite pelo menos 2 letras..."} 
         value={search}
         onValueChange={setSearch}
         className="h-12 text-base"
@@ -199,9 +225,7 @@ export function MunicipioSingleCombobox({
       onClick={() => setOpen(true)}
     >
       {selected ? (
-        <span className="truncate">
-          {selected.nome} / {selected.uf}
-        </span>
+        <span className="truncate">{selected.nome} / {selected.uf}</span>
       ) : (
         <span className="text-muted-foreground">{placeholder}</span>
       )}
@@ -243,9 +267,11 @@ export function MunicipioSingleCombobox({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent
-        className="w-[--radix-popover-trigger-width] p-0 z-[100]"
+      <PopoverTrigger asChild>
+        {trigger}
+      </PopoverTrigger>
+      <PopoverContent 
+        className="w-[--radix-popover-trigger-width] p-0" 
         align="start"
         side="bottom"
         sideOffset={4}
@@ -295,7 +321,11 @@ export function MunicipioMultiCombobox({
   };
 
   const trigger = (
-    <Button variant="outline" className="w-full justify-between font-normal h-10 px-3" onClick={() => setOpen(true)}>
+    <Button 
+      variant="outline" 
+      className="w-full justify-between font-normal h-10 px-3"
+      onClick={() => setOpen(true)}
+    >
       <span className="text-muted-foreground truncate">{placeholder}</span>
       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
     </Button>
@@ -334,9 +364,11 @@ export function MunicipioMultiCombobox({
         </>
       ) : (
         <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-          <PopoverContent
-            className="w-[--radix-popover-trigger-width] p-0 z-[100]"
+          <PopoverTrigger asChild>
+            {trigger}
+          </PopoverTrigger>
+          <PopoverContent 
+            className="w-[--radix-popover-trigger-width] p-0" 
             align="start"
             side="bottom"
             sideOffset={4}
@@ -369,54 +401,43 @@ export function MunicipioMultiCombobox({
   );
 }
 
-/** Componente para seleção de UF única */
+/**
+ * Componente para seleção de UF única
+ */
 const BR_UFS = [
-  "AC",
-  "AL",
-  "AP",
-  "AM",
-  "BA",
-  "CE",
-  "DF",
-  "ES",
-  "GO",
-  "MA",
-  "MT",
-  "MS",
-  "MG",
-  "PA",
-  "PB",
-  "PR",
-  "PE",
-  "PI",
-  "RJ",
-  "RN",
-  "RS",
-  "RO",
-  "RR",
-  "SC",
-  "SP",
-  "SE",
-  "TO",
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", 
+  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", 
+  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
 
-export function UfSingleSelect({ value, onChange }: { value: string; onChange: (uf: string) => void }) {
+export function UfSingleSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (uf: string) => void;
+}) {
+  // Lista estática garante 26 UFs + DF
   const ufs = BR_UFS;
   const [open, setOpen] = React.useState(false);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-10">
+        <Button
+          variant="outline"
+          role="combobox"
+          className="w-full justify-between font-normal h-10"
+        >
           {value || "Selecione a UF..."}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent
-        className="w-[--radix-popover-trigger-width] p-0 z-[100]"
+      <PopoverContent 
+        className="w-[--radix-popover-trigger-width] p-0" 
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <Command
+        <Command 
           className="max-h-[300px] flex flex-col"
           filter={(value, search) => {
             if (value.toLowerCase().includes(search.toLowerCase())) return 1;
@@ -436,7 +457,12 @@ export function UfSingleSelect({ value, onChange }: { value: string; onChange: (
                     setOpen(false);
                   }}
                 >
-                  <Check className={cn("mr-2 h-4 w-4", value === uf ? "opacity-100" : "opacity-0")} />
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === uf ? "opacity-100" : "opacity-0"
+                    )}
+                  />
                   {uf}
                 </CommandItem>
               ))}
@@ -448,7 +474,9 @@ export function UfSingleSelect({ value, onChange }: { value: string; onChange: (
   );
 }
 
-/** Componente para seleção de Cidade única com filtro por UF */
+/**
+ * Componente para seleção de Cidade única com filtro por UF
+ */
 export function CidadeSingleCombobox({
   uf,
   value,
@@ -466,15 +494,20 @@ export function CidadeSingleCombobox({
     queryKey: ["cidades-search", uf, debouncedSearch],
     queryFn: async () => {
       if (!uf) return [];
-      let query = supabase.from("municipios").select("nome").eq("uf", uf).order("nome").limit(50);
-
+      let query = supabase
+        .from("municipios")
+        .select("nome")
+        .eq("uf", uf)
+        .order("nome")
+        .limit(50);
+      
       if (debouncedSearch) {
         query = query.ilike("nome", `%${debouncedSearch}%`);
       }
-
+      
       const { data, error } = await query;
       if (error) throw error;
-      return Array.from(new Set((data ?? []).map((m) => m.nome)));
+      return Array.from(new Set((data ?? []).map(m => m.nome)));
     },
     enabled: !!uf,
   });
@@ -482,17 +515,25 @@ export function CidadeSingleCombobox({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-10" disabled={!uf}>
+        <Button
+          variant="outline"
+          role="combobox"
+          className="w-full justify-between font-normal h-10"
+          disabled={!uf}
+        >
           {value || (uf ? "Selecione a cidade..." : "Selecione a UF primeiro")}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent
-        className="w-[--radix-popover-trigger-width] p-0 z-[100]"
+      <PopoverContent 
+        className="w-[--radix-popover-trigger-width] p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <Command shouldFilter={false} className="max-h-[300px] flex flex-col">
-          <CommandInput placeholder="Buscar cidade..." onValueChange={setSearchTerm} />
+          <CommandInput 
+            placeholder="Buscar cidade..." 
+            onValueChange={setSearchTerm}
+          />
           <CommandList className="overflow-y-auto">
             {isLoading && <div className="p-2 text-xs text-muted-foreground">Carregando...</div>}
             {!isLoading && cidades.length === 0 && <CommandEmpty>Nenhuma cidade encontrada.</CommandEmpty>}
@@ -506,7 +547,12 @@ export function CidadeSingleCombobox({
                     setOpen(false);
                   }}
                 >
-                  <Check className={cn("mr-2 h-4 w-4", value === cidade ? "opacity-100" : "opacity-0")} />
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === cidade ? "opacity-100" : "opacity-0"
+                    )}
+                  />
                   {cidade}
                 </CommandItem>
               ))}
