@@ -65,7 +65,6 @@ export function NewPrestadorModal({
           ...v,
           uf: ufSede,
           cidade: cidadeSede,
-          atualizado_em: new Date().toISOString(),
         })
         .select("id")
         .single();
