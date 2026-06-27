@@ -75,6 +75,7 @@ import {
 import { EspecialidadeMultiSelect } from "@/components/especialidade-multiselect";
 import { NewPrestadorModal } from "@/components/new-prestador-modal";
 import { ProspeccaoForm } from "@/components/prospeccao-form";
+import { ProspeccaoDetailsDialog } from "@/components/prospeccao-details-dialog";
 
 export const Route = createFileRoute("/_authenticated/prospeccao")({
   component: ProspeccaoPage,
