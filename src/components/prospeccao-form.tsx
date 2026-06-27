@@ -159,7 +159,7 @@ export function ProspeccaoForm({
               <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                 <Command>
                   <CommandInput placeholder="Buscar prestador..." />
-                  <CommandList>
+                  <CommandList className="max-h-72 overscroll-contain touch-pan-y">
                     <CommandEmpty>Nenhum prestador encontrado.</CommandEmpty>
                     <CommandGroup>
                       {prestadores.map((p) => (
