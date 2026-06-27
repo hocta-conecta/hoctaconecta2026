@@ -7,6 +7,7 @@ import { u as useFocusGuards } from "./radix-ui__react-focus-guards.mjs";
 import { F as FocusScope } from "./radix-ui__react-focus-scope.mjs";
 import { u as useId } from "./radix-ui__react-id.mjs";
 import { R as Root2$1, A as Anchor, c as createPopperScope, C as Content, a as Arrow } from "./radix-ui__react-popper.mjs";
+import { P as Portal$1 } from "./radix-ui__react-portal.mjs";
 import { P as Presence } from "./radix-ui__react-presence.mjs";
 import { P as Primitive } from "./radix-ui__react-primitive.mjs";
 import { c as createSlot } from "./radix-ui__react-slot.mjs";
@@ -98,6 +99,12 @@ var PORTAL_NAME = "PopoverPortal";
 var [PortalProvider, usePortalContext] = createPopoverContext(PORTAL_NAME, {
   forceMount: void 0
 });
+var PopoverPortal = (props) => {
+  const { __scopePopover, forceMount, children, container } = props;
+  const context = usePopoverContext(PORTAL_NAME, __scopePopover);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(PortalProvider, { scope: __scopePopover, forceMount, children: /* @__PURE__ */ jsxRuntimeExports.jsx(Presence, { present: forceMount || context.open, children: /* @__PURE__ */ jsxRuntimeExports.jsx(Portal$1, { asChild: true, container, children }) }) });
+};
+PopoverPortal.displayName = PORTAL_NAME;
 var CONTENT_NAME = "PopoverContent";
 var PopoverContent = reactExports.forwardRef(
   (props, forwardedRef) => {
@@ -284,9 +291,11 @@ function getState(open) {
 }
 var Root2 = Popover;
 var Trigger = PopoverTrigger;
+var Portal = PopoverPortal;
 var Content2 = PopoverContent;
 export {
   Content2 as C,
+  Portal as P,
   Root2 as R,
   Trigger as T
 };
