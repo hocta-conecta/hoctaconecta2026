@@ -1,44 +1,42 @@
 import * as React from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
 import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  useDraggable,
-  useDroppable,
-  type DragEndEvent,
-  type DragStartEvent,
-} from "@dnd-kit/core";
-import {
-  Plus,
   Loader2,
+  Plus,
   Pencil,
+  Trash2,
+  History,
+  CheckCircle2,
   GripVertical,
-  Phone,
   Mail,
+  Phone,
   MessageCircle,
   MapPin,
-  CheckCircle2,
-  History,
-  UserPlus,
-  Trash2,
+  Search,
   Check,
   ChevronsUpDown,
 } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { useForm } from "react-hook-form";
+import {
+  DndContext,
+  DragOverlay,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  type DragStartEvent,
+  type DragEndEvent,
+  useDraggable,
+  useDroppable,
+} from "@dnd-kit/core";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { PROSPECCAO_ETAPAS, labelOf } from "@/lib/domain";
+import { PROSPECCAO_ETAPAS } from "@/lib/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -54,6 +52,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Command,
   CommandEmpty,
@@ -62,19 +66,12 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { PRESTADOR_TIPOS } from "@/lib/domain";
-import { EspecialidadeMultiSelect } from "@/components/especialidade-multiselect";
 import { 
+  EspecialidadeMultiSelect, 
   MunicipioMultiCombobox, 
   UfSingleSelect, 
-  CidadeSingleCombobox 
+  CidadeSingleSelect 
 } from "@/components/municipio-combobox";
 
 export const Route = createFileRoute("/_authenticated/prospeccao")({
@@ -87,12 +84,22 @@ type Prospeccao = {
   projeto_id: number | null;
   executivo_id: string | null;
   etapa: string;
-  prioridade: number;
+  prioridade: number | null;
   data_inicio: string | null;
   observacoes: string | null;
+  criado_em: string;
+  atualizado_em: string;
   convertido_em: string | null;
-  prestadores: { razao_social: string; cidade: string; uf: string; telefone: string | null; email: string | null } | null;
-  projetos: { nome: string } | null;
+  prestadores?: {
+    razao_social: string;
+    cidade: string;
+    uf: string;
+    telefone: string | null;
+    email: string | null;
+  };
+  projetos?: {
+    nome: string;
+  };
 };
 
 type Interacao = {
@@ -127,6 +134,7 @@ async function fetchProspeccoes(): Promise<Prospeccao[]> {
 function ProspeccaoPage() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const [search, setSearch] = React.useState("");
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["prospeccoes"],
@@ -157,7 +165,6 @@ function ProspeccaoPage() {
   const [editing, setEditing] = React.useState<Prospeccao | null>(null);
   const [detailsId, setDetailsId] = React.useState<number | null>(null);
   const [activeId, setActiveId] = React.useState<number | null>(null);
-  const [search, setSearch] = React.useState("");
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -219,15 +226,13 @@ function ProspeccaoPage() {
   const activeCard = data.find((p) => p.id === activeId);
 
   const filtered = React.useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (!term) return data;
+    if (!search.trim()) return data;
+    const term = search.toLowerCase();
     return data.filter((p) => {
       const haystack = [
         p.prestadores?.razao_social,
         p.prestadores?.cidade,
-        p.prestadores?.uf,
         p.projetos?.nome,
-        p.observacoes,
       ]
         .filter(Boolean)
         .join(" ")
@@ -267,7 +272,7 @@ function ProspeccaoPage() {
         </div>
       ) : (
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-          <div className="flex sm:grid gap-3 overflow-x-auto sm:overflow-visible snap-x snap-mandatory -mx-3 px-3 pb-2 sm:mx-0 sm:px-0 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 overscroll-x-contain">
+          <div className="flex flex-col md:flex-row gap-3 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
             {PROSPECCAO_ETAPAS.map((col) => (
               <KanbanColumn
                 key={col.value}
@@ -329,7 +334,7 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`shrink-0 w-[78vw] max-w-xs sm:w-auto sm:max-w-none snap-start rounded-xl border border-border bg-muted/40 p-3 min-h-[160px] transition-colors ${
+      className={`rounded-xl border border-border bg-muted/40 p-3 min-h-[150px] md:min-w-[300px] md:w-[300px] flex-shrink-0 transition-colors ${
         isOver ? "ring-2 ring-primary bg-accent/40" : ""
       }`}
     >
@@ -455,7 +460,6 @@ function ProspeccaoForm({
 }) {
   const qc = useQueryClient();
   const [showNewPrestador, setShowNewPrestador] = React.useState(false);
-  const [prestadorOpen, setPrestadorOpen] = React.useState(false);
   const form = useForm<FormValues>({
     defaultValues: editing
       ? {
@@ -534,12 +538,12 @@ function ProspeccaoForm({
                 <Plus className="h-3 w-3 mr-1" /> Novo prestador
               </Button>
             </div>
-            <Popover open={prestadorOpen} onOpenChange={setPrestadorOpen}>
+            <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   role="combobox"
-                  className="w-full justify-between font-normal h-10"
+                  className="w-full justify-between font-normal"
                 >
                   {form.watch("prestador_id")
                     ? prestadores.find((p) => String(p.id) === form.watch("prestador_id"))?.razao_social
@@ -547,10 +551,10 @@ function ProspeccaoForm({
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                 <Command>
                   <CommandInput placeholder="Buscar prestador..." />
-                  <CommandList className="max-h-72 overscroll-contain touch-pan-y">
+                  <CommandList>
                     <CommandEmpty>Nenhum prestador encontrado.</CommandEmpty>
                     <CommandGroup>
                       {prestadores.map((p) => (
@@ -559,7 +563,6 @@ function ProspeccaoForm({
                           value={p.razao_social}
                           onSelect={() => {
                             form.setValue("prestador_id", String(p.id));
-                            setPrestadorOpen(false);
                           }}
                         >
                           <Check
@@ -634,47 +637,49 @@ function ProspeccaoForm({
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" variant="gradient" disabled={save.isPending}>
-              {save.isPending && <Loader2 className="animate-spin" />} Salvar
+            <Button type="submit" disabled={save.isPending}>
+              {save.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {editing ? "Salvar" : "Criar"}
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
 
-      <QuickPrestadorForm 
-        open={showNewPrestador} 
-        onClose={() => setShowNewPrestador(false)} 
-        onCreated={(id) => {
-          qc.invalidateQueries({ queryKey: ["prestadores-opts"] });
-          form.setValue("prestador_id", String(id));
-          setShowNewPrestador(false);
-        }}
-      />
+        {showNewPrestador && (
+          <NewPrestadorModal 
+            open={showNewPrestador} 
+            onClose={() => setShowNewPrestador(false)} 
+            onSuccess={(id) => {
+              form.setValue("prestador_id", String(id));
+              qc.invalidateQueries({ queryKey: ["prestadores-opts"] });
+            }}
+          />
+        )}
+      </DialogContent>
     </Dialog>
   );
 }
 
-function QuickPrestadorForm({ 
+function NewPrestadorModal({ 
   open, 
   onClose, 
-  onCreated 
+  onSuccess 
 }: { 
   open: boolean; 
   onClose: () => void; 
-  onCreated: (id: number) => void;
+  onSuccess: (id: number) => void;
 }) {
+  const qc = useQueryClient();
+  const [municipiosSel, setMunicipiosSel] = React.useState<string[]>([]);
   const [especialidadesSel, setEspecialidadesSel] = React.useState<number[]>([]);
-  const [municipiosSel, setMunicipiosSel] = React.useState<number[]>([]);
-  const [tipoOpen, setTipoOpen] = React.useState(false);
-  
+  const [ufSede, setUfSede] = React.useState("");
+  const [cidadeSede, setCidadeSede] = React.useState("");
+
   const form = useForm({
     defaultValues: {
       razao_social: "",
       nome_fantasia: "",
       cnpj: "",
-      tipo: "outro",
-      cidade: "",
-      uf: "",
+      tipo: "clinica_medica",
       telefone: "",
       email: "",
       observacoes: "",
@@ -682,139 +687,120 @@ function QuickPrestadorForm({
   });
 
   const save = useMutation({
-    mutationFn: async (values: any) => {
-      // 1. Insere o prestador
-      const { data, error } = await supabase
+    mutationFn: async (v: any) => {
+      // 1. Inserir prestador
+      const { data: prestador, error } = await supabase
         .from("prestadores")
         .insert({
-          ...values,
-          uf: (values.uf || "").toUpperCase().slice(0, 2),
+          ...v,
+          uf: ufSede,
+          cidade: cidadeSede,
+          atualizado_em: new Date().toISOString(),
         })
         .select("id")
         .single();
-      
-      if (error) throw error;
-      const prestadorId = data.id;
 
-      // 2. Insere especialidades
-      if (especialidadesSel.length > 0) {
-        const { error: espErr } = await supabase.from("prestador_especialidades").insert(
-          especialidadesSel.map(id => ({ prestador_id: prestadorId, especialidade_id: id }))
-        );
-        if (espErr) console.error("Erro ao salvar especialidades:", espErr);
+      if (error) throw error;
+      const prestadorId = prestador.id;
+
+      // 2. Salvar especialidades
+      if (especialidadesSel.length) {
+        const rows = especialidadesSel.map((eid) => ({
+          prestador_id: prestadorId,
+          especialidade_id: eid,
+        }));
+        const { error: eError } = await supabase.from("prestador_especialidades").insert(rows);
+        if (eError) throw eError;
       }
 
-      // 3. Insere municípios
-      if (municipiosSel.length > 0) {
-        const { error: munErr } = await supabase.from("prestador_municipios").insert(
-          municipiosSel.map(code => ({ prestador_id: prestadorId, municipio_codigo: code }))
-        );
-        if (munErr) console.error("Erro ao salvar municípios:", munErr);
+      // 3. Salvar municípios
+      if (municipiosSel.length) {
+        const rows = municipiosSel.map((m) => ({
+          prestador_id: prestadorId,
+          municipio_codigo: m,
+        }));
+        const { error: mError } = await supabase.from("prestador_municipios").insert(rows);
+        if (mError) throw mError;
       }
 
       return prestadorId;
     },
     onSuccess: (id) => {
-      toast.success("Prestador cadastrado com sucesso!");
-      onCreated(id);
+      toast.success("Prestador cadastrado com sucesso");
+      onSuccess(id);
+      onClose();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Novo Prestador</DialogTitle>
         </DialogHeader>
         <form onSubmit={form.handleSubmit((v) => save.mutate(v))} className="space-y-4">
           <div className="space-y-2">
             <Label>Razão social *</Label>
-            <Input {...form.register("razao_social", { required: true })} />
+            <Input placeholder="Ex: Hospital Central de Exemplo Ltda" {...form.register("razao_social", { required: true })} />
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Nome fantasia</Label>
-              <Input {...form.register("nome_fantasia")} />
+              <Input placeholder="Ex: Hospital Central" {...form.register("nome_fantasia")} />
             </div>
             <div className="space-y-2">
               <Label>CNPJ</Label>
-              <Input {...form.register("cnpj")} />
+              <Input placeholder="00.000.000/0000-00" {...form.register("cnpj")} />
             </div>
           </div>
 
           <div className="space-y-2">
             <Label>Tipo</Label>
-            <Popover open={tipoOpen} onOpenChange={setTipoOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className="w-full justify-between font-normal h-10"
-                >
-                  {form.watch("tipo")
-                    ? PRESTADOR_TIPOS.find((t) => t.value === form.watch("tipo"))?.label
-                    : "Selecione o tipo..."}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Buscar tipo..." />
-                  <CommandList className="max-h-72 overscroll-contain touch-pan-y">
-                    <CommandEmpty>Nenhum tipo encontrado.</CommandEmpty>
-                    <CommandGroup>
-                      {PRESTADOR_TIPOS.map((t) => (
-                        <CommandItem
-                          key={t.value}
-                          value={t.label}
-                          onSelect={() => {
-                            form.setValue("tipo", t.value);
-                            setTipoOpen(false);
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              form.watch("tipo") === t.value ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          {t.label}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            <Select value={form.watch("tipo")} onValueChange={(v) => form.setValue("tipo", v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[
+                  { value: "consultorio", label: "Consultório" },
+                  { value: "clinica_medica", label: "Clínica Médica" },
+                  { value: "clinica_nao_medica", label: "Clínica Não Médica" },
+                  { value: "laboratorio", label: "Laboratório" },
+                  { value: "servico_imagem", label: "Serviço de Imagem" },
+                  { value: "policlinica", label: "Policlínica" },
+                  { value: "hospital", label: "Hospital" },
+                  { value: "outro", label: "Outro" },
+                ].map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
             <Label>Especialidades atendidas</Label>
-            <EspecialidadeMultiSelect
-              value={especialidadesSel}
-              onChange={setEspecialidadesSel}
-            />
+            <EspecialidadeMultiSelect value={especialidadesSel} onChange={setEspecialidadesSel} />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>UF *</Label>
               <UfSingleSelect 
-                value={form.watch("uf")} 
-                onChange={(v) => {
-                  form.setValue("uf", v);
-                  form.setValue("cidade", "");
+                value={ufSede} 
+                onChange={(val) => {
+                  setUfSede(val);
+                  setCidadeSede(""); // Limpa cidade ao trocar UF
                 }} 
               />
             </div>
-            <div className="space-y-2 col-span-2">
+            <div className="space-y-2">
               <Label>Cidade-sede *</Label>
-              <CidadeSingleCombobox 
-                uf={form.watch("uf")} 
-                value={form.watch("cidade")} 
-                onChange={(v) => form.setValue("cidade", v)} 
+              <CidadeSingleSelect 
+                uf={ufSede} 
+                value={cidadeSede} 
+                onChange={setCidadeSede} 
               />
             </div>
           </div>
@@ -842,8 +828,9 @@ function QuickPrestadorForm({
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" variant="gradient" disabled={save.isPending}>
-              {save.isPending && <Loader2 className="animate-spin" />} Cadastrar
+            <Button type="submit" disabled={save.isPending}>
+              {save.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Cadastrar
             </Button>
           </DialogFooter>
         </form>
@@ -852,7 +839,7 @@ function QuickPrestadorForm({
   );
 }
 
-// ---------------- Dialog de detalhes (interações + conversão) ----------------
+// ---------------- Detalhes e Interações ----------------
 
 function DetailsDialog({
   prospeccaoId,
@@ -866,11 +853,11 @@ function DetailsDialog({
   const qc = useQueryClient();
   const { user } = useAuth();
 
-  const { data: interacoes = [] } = useQuery({
+  const { data: interacoes = [], isLoading } = useQuery({
     queryKey: ["interacoes", prospeccaoId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("prospeccao_interacoes")
+        .from("interacoes_prospeccao")
         .select("*")
         .eq("prospeccao_id", prospeccaoId)
         .order("data", { ascending: false });
@@ -879,181 +866,163 @@ function DetailsDialog({
     },
   });
 
-  const [tipo, setTipo] = React.useState("telefone");
-  const [obs, setObs] = React.useState("");
-
   const addInteracao = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from("prospeccao_interacoes").insert({
+    mutationFn: async (v: { tipo: string; observacao: string }) => {
+      const { error } = await supabase.from("interacoes_prospeccao").insert({
         prospeccao_id: prospeccaoId,
-        tipo,
-        observacao: obs || null,
-        autor_id: user?.id ?? null,
+        tipo: v.tipo,
+        observacao: v.observacao,
+        data: new Date().toISOString(),
+        autor_id: user?.id,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["interacoes", prospeccaoId] });
-      setObs("");
       toast.success("Interação registrada");
     },
-    onError: (e: Error) => toast.error(e.message),
   });
 
-  const convert = useMutation({
+  const converter = useMutation({
     mutationFn: async () => {
-      if (!prospeccao?.prestador_id) throw new Error("Sem prestador vinculado");
-      
-      // 1. Atualiza a prospecção
-      const { error: prospError } = await supabase
+      // 1. Atualiza status para credenciado e define data de conversão
+      const { error } = await supabase
         .from("prospeccoes")
-        .update({
-          etapa: "credenciado",
+        .update({ 
+          etapa: "credenciado", 
           convertido_em: new Date().toISOString(),
-          data_contratacao: new Date().toISOString().slice(0, 10),
-          atualizado_em: new Date().toISOString(),
+          atualizado_em: new Date().toISOString()
         })
         .eq("id", prospeccaoId);
-      
-      if (prospError) throw prospError;
+      if (error) throw error;
 
-      // 2. Vínculo automático: Se houver um projeto, garante que o prestador está vinculado aos municípios do projeto
-      if (prospeccao.projeto_id) {
+      // 2. Se houver projeto e prestador, vincula o prestador aos municípios do projeto
+      if (prospeccao?.projeto_id && prospeccao?.prestador_id) {
         // Busca municípios do projeto
-        const { data: projMuns } = await supabase
+        const { data: projMun } = await supabase
           .from("projeto_municipios")
           .select("municipio_codigo")
           .eq("projeto_id", prospeccao.projeto_id);
-
-        if (projMuns && projMuns.length > 0) {
-          const rows = projMuns.map(m => ({
+        
+        if (projMun && projMun.length > 0) {
+          const rows = projMun.map(m => ({
             prestador_id: prospeccao.prestador_id,
             municipio_codigo: m.municipio_codigo
           }));
           
-          // Insere ignorando duplicatas (upsert manual via on conflict não disponível em todas as configs, então usamos insert simples)
-          await supabase.from("prestador_municipios").insert(rows);
+          // Insere vínculos (ignora duplicados se houver)
+          await supabase.from("prestador_municipios").upsert(rows, { onConflict: 'prestador_id,municipio_codigo' });
         }
       }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["prospeccoes"] });
-      qc.invalidateQueries({ queryKey: ["prestadores"] });
-      toast.success("Prospecção convertida e prestador vinculado ao projeto!");
+      toast.success("Prestador marcado como credenciado!");
       onClose();
     },
-    onError: (e: Error) => toast.error(e.message),
   });
 
-  if (!prospeccao) return null;
-  const alreadyConverted = !!prospeccao.convertido_em || prospeccao.etapa === "credenciado";
-
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {prospeccao.prestadores?.razao_social ?? "Prospecção"}
-          </DialogTitle>
+          <DialogTitle>Detalhes da Prospecção</DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="interacoes">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="interacoes">Histórico de interações</TabsTrigger>
-            <TabsTrigger value="acoes">Ações</TabsTrigger>
-          </TabsList>
+        {prospeccao && (
+          <div className="mb-6 p-4 rounded-lg bg-muted/30 border border-border">
+            <h3 className="font-bold text-lg">{prospeccao.prestadores?.razao_social}</h3>
+            <p className="text-sm text-muted-foreground">
+              {prospeccao.prestadores?.cidade}/{prospeccao.prestadores?.uf}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Badge variant="outline">{prospeccao.projetos?.nome || "Sem projeto"}</Badge>
+              <Badge>{prospeccao.etapa}</Badge>
+              {prospeccao.convertido_em && (
+                <Badge variant="success">Credenciado em {new Date(prospeccao.convertido_em).toLocaleDateString()}</Badge>
+              )}
+            </div>
+          </div>
+        )}
 
-          <TabsContent value="interacoes" className="space-y-4 pt-3">
-            <div className="rounded-lg border border-border p-3 space-y-3">
-              <p className="text-sm font-medium">Registrar nova interação</p>
-              <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-2">
-                <Select value={tipo} onValueChange={setTipo}>
+        <div className="space-y-6">
+          <section>
+            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <History className="h-4 w-4" /> Histórico de Interações
+            </h4>
+            <div className="space-y-3">
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : interacoes.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Nenhuma interação registrada.</p>
+              ) : (
+                interacoes.map((i) => (
+                  <div key={i.id} className="text-sm border-l-2 border-primary/30 pl-3 py-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium capitalize">{i.tipo}</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(i.data).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-muted-foreground text-xs">{i.observacao}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="pt-4 border-t border-border">
+            <h4 className="text-sm font-semibold mb-3">Nova Interação</h4>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                addInteracao.mutate({
+                  tipo: String(fd.get("tipo")),
+                  observacao: String(fd.get("observacao")),
+                });
+                (e.target as HTMLFormElement).reset();
+              }}
+              className="space-y-3"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <Select name="tipo" defaultValue="telefone">
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {INTERACAO_TIPOS.map((t) => (
                       <SelectItem key={t.value} value={t.value}>
-                        {t.label}
+                        <div className="flex items-center gap-2">
+                          <t.icon className="h-3.5 w-3.5" /> {t.label}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <Textarea
-                  rows={2}
-                  value={obs}
-                  onChange={(e) => setObs(e.target.value)}
-                  placeholder="Observação..."
-                />
               </div>
-              <Button
-                onClick={() => addInteracao.mutate()}
-                disabled={addInteracao.isPending}
-                size="sm"
-              >
-                {addInteracao.isPending && <Loader2 className="animate-spin" />} Registrar
+              <Textarea name="observacao" placeholder="O que foi conversado?" required />
+              <Button type="submit" size="sm" disabled={addInteracao.isPending}>
+                Registrar
               </Button>
-            </div>
+            </form>
+          </section>
 
-            <div className="space-y-2">
-              {interacoes.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Nenhuma interação registrada ainda.
-                </p>
-              ) : (
-                interacoes.map((i) => {
-                  const meta = INTERACAO_TIPOS.find((t) => t.value === i.tipo);
-                  const Icon = meta?.icon ?? History;
-                  return (
-                    <div key={i.id} className="flex gap-3 p-3 rounded-lg border border-border">
-                      <Icon className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 text-sm">
-                          <span className="font-medium">{meta?.label ?? i.tipo}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(i.data), "dd/MM/yyyy HH:mm")}
-                          </span>
-                        </div>
-                        {i.observacao && (
-                          <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
-                            {i.observacao}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="acoes" className="space-y-3 pt-3">
-            <div className="rounded-lg border border-border p-4 space-y-2">
-              <p className="text-sm font-medium">Converter em credenciamento</p>
-              <p className="text-xs text-muted-foreground">
-                Marca a prospecção como credenciada, move o card para a coluna "Credenciado"
-                e registra a data de contratação. O prestador permanece vinculado.
-              </p>
-              <Button
-                variant="gradient"
-                onClick={() => convert.mutate()}
-                disabled={alreadyConverted || convert.isPending}
+          {!prospeccao?.convertido_em && (
+            <section className="pt-4 border-t border-border flex justify-end">
+              <Button 
+                variant="success" 
+                onClick={() => {
+                  if (confirm("Confirmar credenciamento deste prestador?")) converter.mutate();
+                }}
+                disabled={converter.isPending}
               >
-                {convert.isPending ? <Loader2 className="animate-spin" /> : <UserPlus className="h-4 w-4" />}
-                {alreadyConverted ? "Já convertida" : "Converter em credenciado"}
+                <CheckCircle2 className="h-4 w-4 mr-2" /> Marcar como Credenciado
               </Button>
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Fechar
-          </Button>
-        </DialogFooter>
+            </section>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
 }
-
-export { labelOf };
