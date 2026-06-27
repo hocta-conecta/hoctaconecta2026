@@ -55,7 +55,7 @@ TIPOS = {
     "servico_imagem": "Serviço de Imagem",
     "policlinica": "Policlínica",
     "Hospitais": "Hospitais",
-    "Serviços de Anestesiologia": "Serviços de Anestesiologia",
+    "Servicos de Anestesiologia": "Servicos de Anestesiologia",
     "outro": "Outro",
 }
 
