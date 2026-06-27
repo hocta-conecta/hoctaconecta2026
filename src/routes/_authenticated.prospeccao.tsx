@@ -68,11 +68,11 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { 
-  EspecialidadeMultiSelect, 
   MunicipioMultiCombobox, 
   UfSingleSelect, 
   CidadeSingleCombobox 
 } from "@/components/municipio-combobox";
+import { EspecialidadeMultiSelect } from "@/components/especialidade-multiselect";
 import { NewPrestadorModal } from "@/components/new-prestador-modal";
 import { ProspeccaoForm } from "@/components/prospeccao-form";
 

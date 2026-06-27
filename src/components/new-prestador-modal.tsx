@@ -23,11 +23,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { 
-  EspecialidadeMultiSelect, 
   MunicipioMultiCombobox, 
   UfSingleSelect, 
   CidadeSingleCombobox 
 } from "@/components/municipio-combobox";
+import { EspecialidadeMultiSelect } from "@/components/especialidade-multiselect";
 
 export function NewPrestadorModal({ 
   open, 
