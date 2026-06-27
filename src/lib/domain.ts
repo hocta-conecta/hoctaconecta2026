@@ -6,6 +6,7 @@ export const PRESTADOR_TIPOS: { value: string; label: string }[] = [
   { value: "servico_imagem", label: "Serviço de Imagem" },
   { value: "policlinica", label: "Policlínica" },
   { value: "hospital", label: "Hospital" },
+  { value: "Serviços de Anestesiologia", label: "Serviços de Anestesiologia" },
   { value: "outro", label: "Outro" },
 ];
 
@@ -37,10 +38,7 @@ export const APP_ROLES: { value: string; label: string }[] = [
   { value: "cliente", label: "Cliente" },
 ];
 
-export function labelOf(
-  list: { value: string; label: string }[],
-  value: string | null | undefined,
-): string {
+export function labelOf(list: { value: string; label: string }[], value: string | null | undefined): string {
   if (!value) return "—";
   return list.find((i) => i.value === value)?.label ?? value;
 }
