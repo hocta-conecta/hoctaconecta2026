@@ -74,10 +74,20 @@ export function NewPrestadorModal({
 
       // 2. Salvar especialidades
       if (especialidadesSel.length) {
-        const rows = especialidadesSel.map((eid) => ({
-          prestador_id: prestadorId,
-          especialidade: eid,
-        }));
+        // Busca os nomes das especialidades para salvar
+        const { data: espData } = await supabase
+          .from("especialidades")
+          .select("id, nome")
+          .in("id", especialidadesSel);
+
+        const rows = especialidadesSel.map((eid) => {
+          const nome = espData?.find(e => e.id === eid)?.nome || String(eid);
+          return {
+            prestador_id: prestadorId,
+            especialidade_id: eid,
+            especialidade: nome,
+          };
+        });
         const { error: eError } = await supabase.from("prestador_especialidades").insert(rows);
         if (eError) throw eError;
       }

@@ -163,16 +163,20 @@ function PrestadoresPage() {
 
   const save = useMutation({
     mutationFn: async (values: FormValues) => {
+      // Remove campos que não existem na tabela prestadores ou que são gerenciados em outras tabelas
+      const { prestador_especialidades, prestador_municipios, ...rest } = values as any;
+      
       const payload = {
-        ...values,
-        nome_fantasia: values.nome_fantasia || null,
-        cnpj: values.cnpj || null,
-        especialidade: values.especialidade || null,
-        telefone: values.telefone || null,
-        email: values.email || null,
-        observacoes: values.observacoes || null,
-        uf: values.uf.toUpperCase().slice(0, 2),
+        ...rest,
+        nome_fantasia: rest.nome_fantasia || null,
+        cnpj: rest.cnpj || null,
+        especialidade: rest.especialidade || null,
+        telefone: rest.telefone || null,
+        email: rest.email || null,
+        observacoes: rest.observacoes || null,
+        uf: rest.uf.toUpperCase().slice(0, 2),
       };
+      
       let prestadorId: number;
       if (editing) {
         const { error } = await supabase
