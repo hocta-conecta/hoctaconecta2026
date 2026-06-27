@@ -157,12 +157,12 @@ export function ProspeccaoForm({
                 </Button>
               </PopoverTrigger>
               <PopoverContent 
-                className="w-[--radix-popover-trigger-width] p-0 overflow-hidden" 
+                className="w-[--radix-popover-trigger-width] p-0" 
                 onOpenAutoFocus={(e) => e.preventDefault()}
               >
-                <Command className="flex flex-col h-full max-h-[300px]">
+                <Command>
                   <CommandInput placeholder="Buscar prestador..." />
-                  <CommandList className="flex-1 overflow-y-auto overscroll-contain touch-pan-y scrollbar-thin scrollbar-thumb-muted-foreground/20">
+                  <CommandList>
                     <CommandEmpty>Nenhum prestador encontrado.</CommandEmpty>
                     <CommandGroup>
                       {prestadores.map((p) => (
