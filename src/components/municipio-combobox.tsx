@@ -1,12 +1,13 @@
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, ChevronsUpDown, MapPin, X } from "lucide-react";
+import { Check, ChevronsUpDown, MapPin, X, Search, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 export type Municipio = {
@@ -101,29 +102,34 @@ function MunicipioSearchContent({
   };
 
   return (
-    <Command shouldFilter={false} className="flex h-full flex-col overflow-hidden">
-      <CommandInput
-        placeholder={isLoading ? "Buscando..." : "Digite pelo menos 2 letras..."}
-        value={search}
-        onValueChange={setSearch}
-        className="h-12 text-base"
-        autoFocus
-      />
-      <CommandList className="flex-1 overflow-y-auto overscroll-contain touch-pan-y max-h-none">
+    <div className="flex h-full flex-col overflow-hidden bg-popover text-popover-foreground">
+      <div className="flex items-center border-b px-3" data-cmdk-input-wrapper="">
+        <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+        <Input
+          placeholder={isLoading ? "Buscando..." : "Digite pelo menos 2 letras..."}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50"
+          autoFocus
+        />
+        {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+      </div>
+
+      <ScrollArea className="flex-1 max-h-[350px] p-2">
         {debouncedSearch.length < 2 ? (
-          <div className="py-12 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+          <div className="py-6 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
             <MapPin className="h-8 w-8 opacity-20" />
             <span>Digite pelo menos 2 letras para buscar.</span>
           </div>
         ) : searchResults.length === 0 && !isLoading ? (
-          <CommandEmpty className="py-12">Nenhum município encontrado.</CommandEmpty>
+          <div className="py-6 text-center text-sm text-muted-foreground">Nenhum município encontrado.</div>
         ) : (
-          <CommandGroup className="p-2">
+          <div className="space-y-1">
             {searchResults.map((m) => (
-              <CommandItem
+              <button
                 key={m.codigo_ibge}
-                value={`${m.nome} ${m.uf}`}
-                onSelect={() => {
+                type="button"
+                onClick={() => {
                   if (isMulti && toggle) {
                     toggle(m.codigo_ibge);
                   } else if (onChange) {
@@ -131,19 +137,22 @@ function MunicipioSearchContent({
                     onClose();
                   }
                 }}
-                className="py-3 px-4 mb-1 rounded-lg border border-transparent aria-selected:bg-accent aria-selected:border-accent/20"
+                className={cn(
+                  "relative flex w-full select-none items-center rounded-sm px-2 py-2 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground text-left",
+                  isSelected(m.codigo_ibge) && "bg-accent/50",
+                )}
               >
-                <Check className={cn("mr-3 h-5 w-5", isSelected(m.codigo_ibge) ? "opacity-100" : "opacity-0")} />
+                <Check className={cn("mr-2 h-4 w-4", isSelected(m.codigo_ibge) ? "opacity-100" : "opacity-0")} />
                 <div className="flex flex-col flex-1">
-                  <span className="font-medium text-base">{m.nome}</span>
+                  <span className="font-medium text-sm">{m.nome}</span>
                   <span className="text-xs text-muted-foreground uppercase">{m.uf}</span>
                 </div>
-              </CommandItem>
+              </button>
             ))}
-          </CommandGroup>
+          </div>
         )}
-      </CommandList>
-    </Command>
+      </ScrollArea>
+    </div>
   );
 }
 
@@ -235,9 +244,7 @@ export function MunicipioSingleCombobox({
         side="bottom"
         sideOffset={4}
       >
-        <div className="h-[400px]">
-          <MunicipioSearchContent {...contentProps} />
-        </div>
+        <MunicipioSearchContent {...contentProps} />
       </PopoverContent>
     </Popover>
   );
@@ -330,9 +337,7 @@ export function MunicipioMultiCombobox({
             side="bottom"
             sideOffset={4}
           >
-            <div className="h-[400px]">
-              <MunicipioSearchContent {...contentProps} />
-            </div>
+            <MunicipioSearchContent {...contentProps} />
           </PopoverContent>
         </Popover>
       )}
@@ -389,8 +394,10 @@ const BR_UFS = [
 ];
 
 export function UfSingleSelect({ value, onChange }: { value: string; onChange: (uf: string) => void }) {
-  const ufs = BR_UFS;
   const [open, setOpen] = React.useState(false);
+  const [search, setSearch] = React.useState("");
+
+  const filteredUfs = BR_UFS.filter((uf) => uf.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -404,30 +411,38 @@ export function UfSingleSelect({ value, onChange }: { value: string; onChange: (
         className="w-[--radix-popover-trigger-width] p-0 z-[100]"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <Command
-          className="max-h-[300px] flex flex-col"
-          filter={(v, s) => (v.toLowerCase().includes(s.toLowerCase()) ? 1 : 0)}
-        >
-          <CommandInput placeholder="Buscar UF..." />
-          <CommandList className="overflow-y-auto">
-            <CommandEmpty>Nenhuma UF encontrada.</CommandEmpty>
-            <CommandGroup>
-              {ufs.map((uf) => (
-                <CommandItem
+        <div className="flex flex-col max-h-[300px]">
+          <div className="flex items-center border-b px-3">
+            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+            <Input
+              placeholder="Buscar UF..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex h-11 w-full bg-transparent py-3 text-sm outline-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+          </div>
+          <ScrollArea className="overflow-y-auto flex-1 p-1">
+            {filteredUfs.length === 0 ? (
+              <div className="py-6 text-center text-sm text-muted-foreground">Nenhuma UF encontrada.</div>
+            ) : (
+              filteredUfs.map((uf) => (
+                <button
                   key={uf}
-                  value={uf}
-                  onSelect={() => {
+                  type="button"
+                  onClick={() => {
                     onChange(uf);
                     setOpen(false);
+                    setSearch("");
                   }}
+                  className="relative flex w-full select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground text-left"
                 >
                   <Check className={cn("mr-2 h-4 w-4", value === uf ? "opacity-100" : "opacity-0")} />
                   {uf}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+                </button>
+              ))
+            )}
+          </ScrollArea>
+        </div>
       </PopoverContent>
     </Popover>
   );
@@ -481,28 +496,44 @@ export function CidadeSingleCombobox({
         className="w-[--radix-popover-trigger-width] p-0 z-[100]"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <Command shouldFilter={false} className="max-h-[300px] flex flex-col">
-          <CommandInput placeholder="Buscar cidade..." onValueChange={setSearchTerm} />
-          <CommandList className="overflow-y-auto">
-            {isLoading && <div className="p-2 text-xs text-muted-foreground">Carregando...</div>}
-            {!isLoading && cidades.length === 0 && <CommandEmpty>Nenhuma cidade encontrada.</CommandEmpty>}
-            <CommandGroup>
+        <div className="flex flex-col max-h-[300px]">
+          <div className="flex items-center border-b px-3">
+            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+            <Input
+              placeholder="Buscar cidade..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex h-11 w-full bg-transparent py-3 text-sm outline-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+          </div>
+          <ScrollArea className="overflow-y-auto flex-1 p-1">
+            {isLoading && (
+              <div className="p-2 text-xs text-muted-foreground flex items-center gap-2">
+                <Loader2 className="h-3 w-3 animate-spin" /> Carregando...
+              </div>
+            )}
+            {!isLoading && cidades.length === 0 && (
+              <div className="py-6 text-center text-sm text-muted-foreground">Nenhuma cidade encontrada.</div>
+            )}
+            <div className="space-y-1">
               {cidades.map((cidade) => (
-                <CommandItem
+                <button
                   key={cidade}
-                  value={cidade}
-                  onSelect={() => {
+                  type="button"
+                  onClick={() => {
                     onChange(cidade);
                     setOpen(false);
+                    setSearchTerm("");
                   }}
+                  className="relative flex w-full select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground text-left"
                 >
                   <Check className={cn("mr-2 h-4 w-4", value === cidade ? "opacity-100" : "opacity-0")} />
                   {cidade}
-                </CommandItem>
+                </button>
               ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+            </div>
+          </ScrollArea>
+        </div>
       </PopoverContent>
     </Popover>
   );
