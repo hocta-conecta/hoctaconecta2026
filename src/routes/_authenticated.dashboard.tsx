@@ -659,74 +659,70 @@ function DashboardPage() {
             </Card>
           </div>
 
-          {/* Gráfico de Distribuição por Especialidade */}
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Card className="lg:col-span-1 border-none shadow-md overflow-hidden">
-              <CardHeader className="bg-gradient-to-br from-primary/5 to-blue-500/5 pb-2">
-                <CardTitle className="text-lg">Foco por Especialidade</CardTitle>
-                <CardDescription>Onde estão seus prospectos</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-4">
-                {data?.prospeccaoPorEspecialidade.length === 0 ? (
-                  <EmptyState mensagem="Sem dados de especialidade." />
-                ) : (
-                  <div className="space-y-4">
-                    {data?.prospeccaoPorEspecialidade.slice(0, 5).map((item, idx) => (
-                      <div key={item.nome} className="flex flex-col gap-1">
-                        <div className="flex justify-between text-xs font-medium">
-                          <span className="truncate max-w-[150px]">{item.nome}</span>
-                          <span className="text-primary font-bold">{item.count}</span>
-                        </div>
-                        <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-primary rounded-full" 
-                            style={{ width: `${(item.count / data!.prospeccaoPorEspecialidade[0].count) * 100}%` }}
-                          />
+          {/* Visualização de Prestadores em Prospecção */}
+          <Card className="border-none shadow-md overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-primary/5 to-blue-500/5 pb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">🎯 Distribuição de Prospecção Ativa</CardTitle>
+                  <CardDescription>Visualização estratégica dos prestadores em negociação</CardDescription>
+                </div>
+                {data && data.prestadoresAtivos.length > 0 && (
+                  <Badge variant="secondary" className="w-fit bg-primary/10 text-primary border-primary/20">
+                    {data.prestadoresAtivos.length} prestadores ativos
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="pt-8">
+              {data?.prestadoresAtivos.length === 0 ? (
+                <EmptyState mensagem="Nenhuma prospecção ativa no momento." />
+              ) : (
+                <div className="space-y-8">
+                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {data?.prestadoresAtivos.slice(0, 9).map((p, idx) => (
+                      <div key={idx} className="group relative p-4 rounded-2xl border border-border bg-white hover:border-primary/50 hover:shadow-xl transition-all duration-300">
+                        <div className="flex flex-col gap-3">
+                          <div className="flex justify-between items-start">
+                            <div className="min-w-0">
+                              <p className="font-bold text-sm text-foreground truncate group-hover:text-primary transition-colors" title={p.nome}>
+                                {p.nome}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground font-medium mt-0.5">{p.especialidade}</p>
+                            </div>
+                            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary/5 text-primary flex items-center justify-center">
+                              <Target className="h-4 w-4" />
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between items-center">
+                              <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Progresso</span>
+                              <span className="text-[10px] font-bold text-primary">{p.etapa}</span>
+                            </div>
+                            <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-gradient-to-r from-primary to-blue-500 rounded-full transition-all duration-1000"
+                                style={{ 
+                                  width: p.etapa.includes('Negociação') || p.etapa.includes('Proposta') ? '75%' : 
+                                         p.etapa.includes('Contato') ? '40%' : '15%' 
+                                }}
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ))}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="lg:col-span-2 border-none shadow-md">
-              <CardHeader>
-                <CardTitle>Prestadores em Prospecção</CardTitle>
-                <CardDescription>Acompanhamento de negociações em curso</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {data?.prestadoresAtivos.length === 0 ? (
-                  <EmptyState mensagem="Nenhuma prospecção ativa no momento." />
-                ) : (
-                  <div className="overflow-x-auto -mx-6 px-6">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-muted-foreground border-b border-muted/50">
-                          <th className="text-left py-3 px-3 font-semibold uppercase tracking-wider text-[10px]">Prestador</th>
-                          <th className="text-left py-3 px-3 font-semibold uppercase tracking-wider text-[10px]">Especialidade</th>
-                          <th className="text-left py-3 px-3 font-semibold uppercase tracking-wider text-[10px]">Etapa</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-muted/30">
-                        {data?.prestadoresAtivos.slice(0, 6).map((r, i) => (
-                          <tr key={i} className="group hover:bg-primary/5 transition-colors">
-                            <td className="py-4 px-3 font-medium text-foreground truncate max-w-[180px]">{r.nome}</td>
-                            <td className="py-4 px-3 text-muted-foreground truncate max-w-[120px]">{r.especialidade}</td>
-                            <td className="py-4 px-3">
-                              <Badge variant="outline" className="text-[10px] font-bold border-primary/20 bg-primary/5 text-primary whitespace-nowrap">
-                                {r.etapa}
-                              </Badge>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                  {data && data.prestadoresAtivos.length > 9 && (
+                    <p className="text-center text-xs text-muted-foreground font-medium">
+                      + {data.prestadoresAtivos.length - 9} outros prestadores em prospecção
+                    </p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ABA 3: CREDENCIAMENTO */}
