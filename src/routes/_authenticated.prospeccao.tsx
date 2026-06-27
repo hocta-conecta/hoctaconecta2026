@@ -288,7 +288,11 @@ function ProspeccaoPage() {
             ))}
           </div>
           <DragOverlay>
-            {activeCard ? <CardBody p={activeCard} overlay /> : null}
+            {activeCard ? (
+              <div className="rounded-lg border border-border bg-card p-3 shadow-[var(--shadow-elegant)] rotate-2">
+                <p className="font-medium text-sm">{activeCard.prestadores?.razao_social}</p>
+              </div>
+            ) : null}
           </DragOverlay>
         </DndContext>
       )}
@@ -420,17 +424,7 @@ function DraggableCard({
   );
 }
 
-function CardBody({ p, overlay }: { p: Prospeccao; overlay?: boolean }) {
-  return (
-    <div
-      className={`rounded-lg border border-border bg-card p-3 ${
-        overlay ? "shadow-[var(--shadow-elegant)] rotate-2" : ""
-      }`}
-    >
-      <p className="font-medium text-sm">{p.prestadores?.razao_social}</p>
-    </div>
-  );
-}
+
 
 // ---------------- Form de criar/editar ----------------
 
