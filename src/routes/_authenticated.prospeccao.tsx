@@ -665,6 +665,7 @@ function QuickPrestadorForm({
 }) {
   const [especialidadesSel, setEspecialidadesSel] = React.useState<number[]>([]);
   const [municipiosSel, setMunicipiosSel] = React.useState<number[]>([]);
+  const [tipoOpen, setTipoOpen] = React.useState(false);
   
   const form = useForm({
     defaultValues: {
@@ -745,12 +746,12 @@ function QuickPrestadorForm({
 
           <div className="space-y-2">
             <Label>Tipo</Label>
-            <Popover>
+            <Popover open={tipoOpen} onOpenChange={setTipoOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   role="combobox"
-                  className="w-full justify-between font-normal"
+                  className="w-full justify-between font-normal h-10"
                 >
                   {form.watch("tipo")
                     ? PRESTADOR_TIPOS.find((t) => t.value === form.watch("tipo"))?.label
@@ -758,10 +759,10 @@ function QuickPrestadorForm({
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                 <Command>
                   <CommandInput placeholder="Buscar tipo..." />
-                  <CommandList>
+                  <CommandList className="max-h-72 overscroll-contain touch-pan-y">
                     <CommandEmpty>Nenhum tipo encontrado.</CommandEmpty>
                     <CommandGroup>
                       {PRESTADOR_TIPOS.map((t) => (
@@ -770,6 +771,7 @@ function QuickPrestadorForm({
                           value={t.label}
                           onSelect={() => {
                             form.setValue("tipo", t.value);
+                            setTipoOpen(false);
                           }}
                         >
                           <Check
